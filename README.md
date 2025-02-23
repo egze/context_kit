@@ -25,7 +25,7 @@ end
 
 ## Quick Start
 
-1. Define your schema:
+### 1. Define your schema:
 
 ```elixir
 defmodule MyApp.Accounts.User do
@@ -40,7 +40,7 @@ defmodule MyApp.Accounts.User do
 end
 ```
 
-2. Create a queries module (optional, functions can be defined directly in context module, and configured as `queries: __MODULE__`):
+### 2. Create a queries module (optional, functions can be defined directly in context module, and configured as `queries: __MODULE__`):
 
 ```elixir
 defmodule MyApp.Accounts.UserQueries do
@@ -52,7 +52,7 @@ defmodule MyApp.Accounts.UserQueries do
 end
 ```
 
-3. Use ContextKit in your context:
+### 3. Use ContextKit in your context:
 
 ```elixir
 defmodule MyApp.Accounts do
@@ -62,6 +62,10 @@ defmodule MyApp.Accounts do
     queries: MyApp.Accounts.UserQueries
 end
 ```
+
+By setting `queries: __MODULE__`, you can define your custom query functions (`apply_query_option/2`) directly in your context module,
+eliminating the need for a separate queries module. This is particularly convenient for simpler contexts
+where you don't need to share query logic across multiple modules.
 
 ## Usage Examples
 
