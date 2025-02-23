@@ -1,3 +1,5 @@
+![Hex.pm Version](https://img.shields.io/hexpm/v/context_kit)
+
 # ContextKit
 
 ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with standardized CRUD operations. It helps reduce boilerplate code while providing powerful querying capabilities and built-in pagination support.
@@ -12,8 +14,7 @@ ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with s
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `context_kit` to your list of dependencies in `mix.exs`:
+The package can be installed by adding `context_kit` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
