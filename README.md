@@ -1,6 +1,8 @@
-![Hex.pm Version](https://img.shields.io/hexpm/v/context_kit?link=https%3A%2F%2Fhex.pm%2Fpackages%2Fcontext_kit)
-
 # ContextKit
+
+[![CI Status](https://github.com/egze/context_kit/actions/workflows/elixir.yml/badge.svg)](https://github.com/egze/context_kit/actions/workflows/elixir.yml)
+[![Hex Version](https://img.shields.io/hexpm/v/context_kit.svg)](https://hex.pm/packages/context_kit)
+[![Hex docs](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat)](https://hexdocs.pm/context_kit)
 
 ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with standardized CRUD operations. It helps reduce boilerplate code while providing powerful querying capabilities and built-in pagination support.
 
