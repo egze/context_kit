@@ -40,7 +40,7 @@ defmodule MyApp.Accounts.User do
 end
 ```
 
-2. Create a queries module (optional):
+2. Create a queries module (optional, functions can be defined directly in context module, and configured as `queries: __MODULE__`):
 
 ```elixir
 defmodule MyApp.Accounts.UserQueries do
