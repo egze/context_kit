@@ -13,7 +13,7 @@ defmodule ContextKit do
 
   ## Getting Started
 
-  1. First, define your schema module:
+  ### 1. First, define your schema module:
 
   ```elixir
   defmodule MyApp.Accounts.User do
@@ -29,11 +29,11 @@ defmodule ContextKit do
   end
   ```
 
-  2. Create a queries module for custom query logic:
+  ### 2. Create a queries module for custom query logic:
 
   ```elixir
   defmodule MyApp.Accounts.UserQueries do
-    def apply_query_option(:with_active_posts, query) do
+    def apply_query_option({:with_active_posts, true}, query) do
       query
       |> join(:inner, [u], p in assoc(u, :posts))
       |> where([_, p], p.status == "active")
@@ -41,7 +41,7 @@ defmodule ContextKit do
   end
   ```
 
-  3. Use ContextKit.CRUD in your context:
+  ### 3. Use ContextKit.CRUD in your context:
 
   ```elixir
   defmodule MyApp.Accounts do
@@ -127,7 +127,7 @@ defmodule ContextKit do
 
   ```elixir
   # In your queries module
-  def apply_query_option(:with_recent_activity, query) do
+  def apply_query_option({:with_recent_activity, true}, query) do
     query
     |> where([u], u.last_active_at > ago(1, "day"))
   end
