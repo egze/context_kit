@@ -44,7 +44,7 @@ end
 
 ```elixir
 defmodule MyApp.Accounts.UserQueries do
-  def apply_query_option(:with_active_posts, query) do
+  def apply_query_option({:with_active_posts, true}, query) do
     query
     |> join(:inner, [u], p in assoc(u, :posts))
     |> where([_, p], p.status == "active")
@@ -105,7 +105,7 @@ Accounts.list_users(
 
 ```elixir
 # Define custom query in your queries module
-def apply_query_option(:with_recent_activity, query) do
+def apply_query_option({:with_recent_activity, true}, query) do
   query
   |> where([u], u.last_active_at > ago(1, "day"))
 end
