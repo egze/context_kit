@@ -21,3 +21,6 @@ context_kit-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# SQLite files
+test.db*

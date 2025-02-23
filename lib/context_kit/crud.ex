@@ -1,46 +1,86 @@
 defmodule ContextKit.CRUD do
   @moduledoc """
-  The `ContextKit.CRUD` module generates common [CRUD](https://pl.wikipedia.org/wiki/CRUD) (Create, Read, Update, Delete) functions for a context, similar to what `mix phx.gen.context` task generates.
+  The `ContextKit.CRUD` module provides a convenient way to generate standard CRUD (Create, Read, Update, Delete)
+  operations for your Ecto schemas. It reduces boilerplate code by automatically generating commonly used database
+  interaction functions.
 
-  ## Options
+  ## Setup
 
-  - `:repo` - The Ecto repository module used for database operations (required)
-  - `:schema` - The Ecto schema module representing the resource that these CRUD operations will be generated for (required)
-  - `:queries` - The module used for constructing Ecto queries for the resource (required)
-  - `:except` - A list of atoms representing the functions to be excluded from generation (optional)
-  - `:plural_resource_name` - A custom plural version of the resource name to be used in function names (optional). If not provided, singular version with 's' ending will be used to generate list function
-
-  ## Usage
+  Add the following to your context module:
 
   ```elixir
   defmodule MyApp.Accounts do
-    use Contexted.CRUD,
+    use ContextKit.CRUD,
       repo: MyApp.Repo,
       schema: MyApp.Accounts.User,
-      exclude: [:delete],
-      plural_resource_name: "users"
+      queries: MyApp.Accounts.UserQueries,
+      except: [:delete],                    # Optional: exclude specific operations
+      plural_resource_name: "users"         # Optional: customize plural name
   end
   ```
 
+  ## Required Options
+
+    * `:repo` - The Ecto repository module to use for database operations
+    * `:schema` - The Ecto schema module that defines your resource
+    * `:queries` - Module containing query-building functions for advanced filtering
+
+  ## Optional Options
+
+    * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`)
+    * `:plural_resource_name` - Custom plural name for list functions (defaults to singular + "s")
+
   ## Generated Functions
 
-  The macro generates the following functions (where `Entity` is the name of your schema):
+  For a schema named `User`, the following functions are generated:
 
-  - `list_entities/1`: Lists all entities, optionally filtered by criteria.
-  - `get_entity/2`: Gets a single entity by ID, optionally with additional query criteria.
-  - `get_entity!/2`: Like `get_entity/2`, but raises an error if the entity is not found.
-  - `one_entity/1`: Fetches a single entity based on the given query.
+  ### List Operations
+    * `list_users/0` - Returns all users
+    * `list_users/1` - Returns filtered users based on options
 
-  Each of these functions can be overridden in the using module if custom behavior is needed.
+  ### Get Operations
+    * `get_user/1` - Fetches a single user by ID
+    * `get_user/2` - Fetches a user by ID with additional filters
+    * `get_user!/1` - Like `get_user/1` but raises if not found
+    * `get_user!/2` - Like `get_user/2` but raises if not found
 
-  ## Options
+  ### Single Record Operations
+    * `one_user/1` - Fetches a single user matching the criteria
+    * `one_user!/1` - Like `one_user/1` but raises if not found
 
-  - `:schema`: The Ecto schema module to use (required).
-  - `:queries`: A module containing query-building functions for the schema (required).
+  ### Delete Operations
+    * `delete_user/1` - Deletes a user struct or by query criteria
 
+  ## Query Options
+
+  All functions that accept options support:
+
+    * Basic filtering with field-value pairs
+    * Complex queries via `Ecto.Query`
+    * Pagination via `paginate: true` or `paginate: [page: 1, per_page: 20]`
+    * Custom query options defined in your queries module
+
+  ## Examples
+
+  ```elixir
+  # List all users
+  MyApp.Accounts.list_users()
+
+  # List active users with pagination
+  MyApp.Accounts.list_users(status: :active, paginate: [page: 1])
+
+  # Get user by ID with preloads
+  MyApp.Accounts.get_user(123, preload: [:posts])
+
+  # Delete user matching criteria
+  MyApp.Accounts.delete_user(email: "user@example.com")
+  ```
+
+  Each generated function can be overridden in your context module if you need custom behavior.
   """
 
   alias ContextKit.Paginator
+  alias ContextKit.Query
 
   defmacro __using__(opts) do
     repo = Keyword.fetch!(opts, :repo)
@@ -54,6 +94,7 @@ defmodule ContextKit.CRUD do
 
     quote do
       import Ecto.Changeset
+      import Ecto.Query
 
       alias unquote(schema)
 
@@ -80,7 +121,13 @@ defmodule ContextKit.CRUD do
               ]
         def unquote(:"list_#{plural_resource_name}")(opts)
             when is_list(opts) or is_non_struct_map(opts) do
-          query = unquote(queries).build(unquote(queries).new(), opts)
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
 
           if paginate = get_in(opts, [:paginate]) do
             paginate = if Keyword.keyword?(paginate) or is_map(paginate), do: paginate, else: []
@@ -131,8 +178,15 @@ defmodule ContextKit.CRUD do
                 unquote(schema).t() | nil
         def unquote(:"get_#{resource_name}")(id, opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
-          unquote(queries).new()
-          |> unquote(queries).build(opts)
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
           |> unquote(repo).get(id)
         end
 
@@ -169,8 +223,15 @@ defmodule ContextKit.CRUD do
                 unquote(schema).t() | nil
         def unquote(:"get_#{resource_name}!")(id, opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
-          unquote(queries).new()
-          |> unquote(queries).build(opts)
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
           |> unquote(repo).get!(id)
         end
 
@@ -198,8 +259,15 @@ defmodule ContextKit.CRUD do
                 unquote(schema).t() | nil
         def unquote(:"one_#{resource_name}")(opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
-          unquote(queries).new()
-          |> unquote(queries).build(opts)
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
           |> unquote(repo).one()
         end
 
@@ -220,8 +288,15 @@ defmodule ContextKit.CRUD do
                 unquote(schema).t() | nil
         def unquote(:"one_#{resource_name}!")(opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
-          unquote(queries).new()
-          |> unquote(queries).build(opts)
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
           |> unquote(repo).one!()
         end
 
@@ -258,12 +333,19 @@ defmodule ContextKit.CRUD do
         @spec unquote(:"delete_#{resource_name}")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
                 {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
         def(unquote(:"delete_#{resource_name}")(opts)) do
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
           query =
-            unquote(queries).new()
-            |> unquote(queries).build(opts)
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          result =
+            query
             |> unquote(repo).one()
 
-          case query do
+          case result do
             nil -> {:error, :not_found}
             entity -> unquote(repo).delete(entity)
           end

@@ -1,5 +1,10 @@
 defmodule ContextKit.Paginator do
-  @moduledoc false
+  @moduledoc """
+  Handles pagination for database queries in ContextKit.
+
+  This module provides pagination functionality with configurable page size,
+  automatic limit/offset calculation, and metadata about the paginated results.
+  """
 
   import Ecto.Changeset
 

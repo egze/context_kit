@@ -21,8 +21,9 @@ defmodule ContextKit.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:inflex, "~> 2.1"},
-      {:ecto, "~> 3.12"}
+      {:ecto, "~> 3.8"},
+      {:ecto_sql, "~> 3.12"},
+      {:ecto_sqlite3, ">= 0.0.0", only: :test}
     ]
   end
 end
