@@ -94,8 +94,9 @@ defmodule ContextKit do
   ])
   ```
 
-  Any option not recognized as a field filter or standard query option is treated as a custom
-    query option and passed to the queries module's `apply_query_option/2` function.
+  All fields from the schema can be filtered on automatically.
+  Any option not recognized as a field filter or standard query option is treated as a custom query option and passed to
+  the queries module's `apply_query_option/2` function.
 
   ### Pagination
 
