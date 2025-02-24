@@ -21,7 +21,7 @@ The package can be installed by adding `context_kit` to your list of dependencie
 ```elixir
 def deps do
   [
-    {:context_kit, "~> 0.1.0"}
+    {:context_kit, "~> 0.2.0"}
   ]
 end
 ```
@@ -91,6 +91,15 @@ user = Accounts.get_user!(123)  # Raises if not found
 # Get one user by criteria
 user = Accounts.one_user(email: "user@example.com")
 
+# Create a new user
+MyApp.Accounts.create_user(%{email: "new@example.com"})
+
+# Update a user
+MyApp.Accounts.update_user(user, %{email: "updated@example.com"})
+
+# Get a changeset for updates
+MyApp.Accounts.change_user(user, %{email: "changed@example.com"})
+
 # Delete user
 Accounts.delete_user(user)
 Accounts.delete_user(email: "user@example.com")
@@ -128,7 +137,7 @@ When using `ContextKit.CRUD`, you can configure:
 - `repo`: Your Ecto repository module
 - `schema`: The Ecto schema module
 - `queries`: Module containing custom query functions
-- `except`: List of operations to exclude (`:list`, `:get`, `:one`, `:delete`)
+- `except`: List of operations to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
 - `plural_resource_name`: Custom plural name for list functions
 
 ## Best Practices

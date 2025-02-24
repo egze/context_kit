@@ -48,6 +48,7 @@ defmodule ContextKit.Book do
   def changeset(schema, params) do
     schema
     |> cast(params, [:title])
+    |> validate_required([:title])
   end
 end
 
