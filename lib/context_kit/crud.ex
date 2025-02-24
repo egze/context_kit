@@ -27,7 +27,7 @@ defmodule ContextKit.CRUD do
 
   ## Optional Options
 
-    * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`)
+    * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
     * `:plural_resource_name` - Custom plural name for list functions (defaults to singular + "s")
 
   ## Generated Functions
@@ -47,6 +47,17 @@ defmodule ContextKit.CRUD do
   ### Single Record Operations
     * `one_user/1` - Fetches a single user matching the criteria
     * `one_user!/1` - Like `one_user/1` but raises if not found
+
+  ### Create Operations
+    * `create_user/1` - Creates a new user with provided attributes
+    * `create_user!/1` - Like `create_user/1` but raises on invalid attributes
+
+  ### Update Operations
+    * `update_user/2` - Updates user with provided attributes
+    * `update_user!/2` - Like `update_user/2` but raises on invalid attributes
+
+  ### Change Operations
+    * `change_user/2` - Returns a changeset for the user with optional changes
 
   ### Delete Operations
     * `delete_user/1` - Deletes a user struct or by query criteria
@@ -71,6 +82,15 @@ defmodule ContextKit.CRUD do
 
   # Get user by ID with preloads
   MyApp.Accounts.get_user(123, preload: [:posts])
+
+  # Create a new user
+  MyApp.Accounts.create_user(%{email: "new@example.com"})
+
+  # Update a user
+  MyApp.Accounts.update_user(user, %{email: "updated@example.com"})
+
+  # Get a changeset for updates
+  MyApp.Accounts.change_user(user, %{email: "changed@example.com"})
 
   # Delete user matching criteria
   MyApp.Accounts.delete_user(email: "user@example.com")
@@ -355,6 +375,126 @@ defmodule ContextKit.CRUD do
         end
 
         defoverridable [{unquote(:"delete_#{resource_name}"), 1}]
+      end
+
+      unless :change in unquote(except) do
+        @doc """
+        Returns a `%Ecto.Changeset{}` for `%#{unquote(schema_name)}{}` by calling `#{unquote(schema_name)}.changeset/2`.
+
+        ## Examples
+
+            iex> change_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"change_#{resource_name}")(
+                resource :: unquote(schema).t(),
+                params :: map()
+              ) :: Ecto.Changeset.t()
+        def(unquote(:"change_#{resource_name}")(%unquote(schema){} = resource, params \\ %{})) do
+          resource
+          |> unquote(schema).changeset(params)
+        end
+
+        defoverridable [{unquote(:"change_#{resource_name}"), 2}]
+      end
+
+      unless :create in unquote(except) do
+        @doc """
+        Creates a new `%#{unquote(schema_name)}{}` with provided attributes.
+
+        ## Examples
+
+            iex> create_#{unquote(resource_name)}(params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> create_#{unquote(resource_name)}(invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"create_#{resource_name}")(params :: map()) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"create_#{resource_name}")(params \\ %{}) do
+          %unquote(schema){}
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert()
+        end
+
+        @doc """
+        Creates a new `%#{unquote(schema_name)}{}` with provided attributes.
+
+        Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
+
+        ## Examples
+
+            iex> create_#{unquote(resource_name)}!(params)
+            %#{unquote(schema_name)}{}
+
+            iex> create_#{unquote(resource_name)}!(invalid_params)
+            Ecto.StaleEntryError
+        """
+        @spec unquote(:"create_#{resource_name}!")(params :: map()) :: unquote(schema).t()
+        def unquote(:"create_#{resource_name}!")(params \\ %{}) do
+          %unquote(schema){}
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert!()
+        end
+
+        defoverridable [
+          {unquote(:"create_#{resource_name}"), 1},
+          {unquote(:"create_#{resource_name}!"), 1}
+        ]
+      end
+
+      unless :update in unquote(except) do
+        @doc """
+        Updates the `%#{unquote(schema_name)}{}` with provided attributes.
+
+        ## Examples
+
+            iex> update_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> update_#{unquote(resource_name)}(#{unquote(resource_name)}, invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"update_#{resource_name}")(
+                resource :: unquote(schema).t(),
+                params :: map()
+              ) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"update_#{resource_name}")(resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).update()
+        end
+
+        @doc """
+        Updates the `%#{unquote(schema_name)}{}` with provided attributes.
+
+        Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
+
+        ## Examples
+
+            iex> update_#{unquote(resource_name)}!(#{unquote(resource_name)}, params)
+            %#{unquote(schema_name)}{}
+
+            iex> update_#{unquote(resource_name)}!(#{unquote(resource_name)}, invalid_params)
+            Ecto.StaleEntryError
+        """
+        @spec unquote(:"update_#{resource_name}!")(
+                resource :: unquote(schema).t(),
+                params :: map()
+              ) ::
+                {:ok, unquote(schema).t()} | Ecto.Changeset.t()
+        def unquote(:"update_#{resource_name}!")(resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).update!()
+        end
+
+        defoverridable [
+          {unquote(:"update_#{resource_name}"), 2},
+          {unquote(:"update_#{resource_name}!"), 2}
+        ]
       end
     end
   end

@@ -6,13 +6,13 @@ defmodule ContextKit.CRUDTest do
   alias ContextKit.Author
   alias ContextKit.Test.Repo
 
-  describe "list_{:resource}/0-1" do
-    setup do
-      Repo.delete_all(Book)
-      Repo.delete_all(Author)
-      :ok
-    end
+  setup do
+    Repo.delete_all(Book)
+    Repo.delete_all(Author)
+    :ok
+  end
 
+  describe "list_{:resource}/0-1" do
     test "simple list" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
 
@@ -125,12 +125,6 @@ defmodule ContextKit.CRUDTest do
   end
 
   describe "get_{:resource}/1-2" do
-    setup do
-      Repo.delete_all(Book)
-      Repo.delete_all(Author)
-      :ok
-    end
-
     test "gets resource by id" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
       book_id = book.id
@@ -179,12 +173,6 @@ defmodule ContextKit.CRUDTest do
   end
 
   describe "get_{:resource}!/1-2" do
-    setup do
-      Repo.delete_all(Book)
-      Repo.delete_all(Author)
-      :ok
-    end
-
     test "gets resource by id" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
       book_id = book.id
@@ -209,12 +197,6 @@ defmodule ContextKit.CRUDTest do
   end
 
   describe "one_{:resource}/1" do
-    setup do
-      Repo.delete_all(Book)
-      Repo.delete_all(Author)
-      :ok
-    end
-
     test "gets single resource by criteria" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
       book_id = book.id
@@ -284,12 +266,6 @@ defmodule ContextKit.CRUDTest do
   end
 
   describe "delete_{:resource}/1" do
-    setup do
-      Repo.delete_all(Book)
-      Repo.delete_all(Author)
-      :ok
-    end
-
     test "deletes the resource struct" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
       assert {:ok, %Book{}} = Books.delete_book(book)
@@ -345,6 +321,112 @@ defmodule ContextKit.CRUDTest do
 
       assert {:ok, %Book{}} = Books.delete_book(author: author)
       refute Books.get_book(book.id)
+    end
+  end
+
+  describe "change_{:resource}/2" do
+    test "returns a changeset for the resource" do
+      book = %Book{title: "Original Title"}
+
+      changeset = Books.change_book(book)
+      assert %Ecto.Changeset{} = changeset
+      assert changeset.data == book
+      assert changeset.valid?
+    end
+
+    test "applies changes when params are provided" do
+      book = %Book{title: "Original Title"}
+      params = %{title: "New Title"}
+
+      changeset = Books.change_book(book, params)
+      assert %Ecto.Changeset{} = changeset
+      assert changeset.changes == %{title: "New Title"}
+      assert changeset.valid?
+    end
+
+    test "validates changes according to schema rules" do
+      book = %Book{title: "Original Title"}
+      # Assuming title is required
+      params = %{title: ""}
+
+      changeset = Books.change_book(book, params)
+      assert %Ecto.Changeset{} = changeset
+      refute changeset.valid?
+      assert changeset.errors[:title]
+    end
+  end
+
+  describe "create_{:resource}/1" do
+    test "creates resource with valid attributes" do
+      attrs = %{title: "New Book"}
+      assert {:ok, %Book{} = book} = Books.create_book(attrs)
+      assert book.title == "New Book"
+      assert book.id
+    end
+
+    test "returns error changeset with invalid attributes" do
+      # Assuming title is required
+      attrs = %{title: ""}
+      assert {:error, %Ecto.Changeset{} = changeset} = Books.create_book(attrs)
+      assert changeset.errors[:title]
+    end
+
+    test "create! creates resource with valid attributes" do
+      attrs = %{title: "New Book"}
+      assert %Book{} = book = Books.create_book!(attrs)
+      assert book.title == "New Book"
+      assert book.id
+    end
+
+    test "create! raises with invalid attributes" do
+      attrs = %{title: ""}
+
+      assert_raise Ecto.InvalidChangesetError, fn ->
+        Books.create_book!(attrs)
+      end
+    end
+  end
+
+  describe "update_{:resource}/2" do
+    test "updates resource with valid attributes" do
+      book = Repo.insert!(%Book{title: "Original Title"})
+      attrs = %{title: "Updated Title"}
+
+      assert {:ok, %Book{} = updated_book} = Books.update_book(book, attrs)
+      assert updated_book.title == "Updated Title"
+      assert updated_book.id == book.id
+    end
+
+    test "returns error changeset with invalid attributes" do
+      book = Repo.insert!(%Book{title: "Original Title"})
+      # Assuming title is required
+      attrs = %{title: ""}
+
+      assert {:error, %Ecto.Changeset{} = changeset} = Books.update_book(book, attrs)
+      assert changeset.errors[:title]
+      # Verify the record wasn't updated
+      assert Repo.get!(Book, book.id).title == "Original Title"
+    end
+
+    test "update! updates resource with valid attributes" do
+      book = Repo.insert!(%Book{title: "Original Title"})
+      attrs = %{title: "Updated Title"}
+
+      assert %Book{} = updated_book = Books.update_book!(book, attrs)
+      assert updated_book.title == "Updated Title"
+      assert updated_book.id == book.id
+    end
+
+    test "update! raises with invalid attributes" do
+      book = Repo.insert!(%Book{title: "Original Title"})
+      attrs = %{title: ""}
+
+      assert_raise Ecto.InvalidChangesetError, fn ->
+        Books.update_book!(book, attrs)
+      end
+
+      # Verify the record wasn't updated
+      assert Repo.get!(Book, book.id).title == "Original Title"
     end
   end
 end
