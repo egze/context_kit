@@ -29,6 +29,8 @@ defmodule ContextKit.CRUD do
 
     * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
     * `:plural_resource_name` - Custom plural name for list functions (defaults to singular + "s")
+    * `:pubsub` - The Phoenix.PubSub module to use for real-time features (required for subscription features)
+      * `:scopes` - Map of scope configurations for subscription and broadcast features
 
   ## Generated Functions
 
@@ -61,6 +63,10 @@ defmodule ContextKit.CRUD do
 
   ### Delete Operations
     * `delete_user/1` - Deletes a user struct or by query criteria
+
+  ### PubSub Operations
+    * `subscribe_users/1` - Subscribes to the scoped users topic
+    * `broadcast_user/2` - Broadcasts a message to the scoped users topic
 
   ## Query Options
 
@@ -97,6 +103,50 @@ defmodule ContextKit.CRUD do
   ```
 
   Each generated function can be overridden in your context module if you need custom behavior.
+
+  ## Real-time Features with PubSub
+
+  When `:pubsub` and `:scopes` are provided, ContextKit generates functions to help with real-time features via Phoenix.PubSub.
+
+  ### Scopes
+
+  Scopes define how to partition your real-time updates based on your application's structure. For example:
+
+  ```elixir
+  scopes: [
+    tenant: [
+      access_path: [:tenant, :id],
+      default: true
+    ],
+    user: [
+      access_path: [:user, :id]
+    ]
+  ]
+  ```
+
+  The `:access_path` defines the path to extract the scope identifier from the context, and `:default: true` marks which scope to use by default.
+
+  ### Subscription Example
+
+  ```elixir
+  # Subscribe to tenant-scoped updates for users
+  MyApp.Accounts.subscribe_users(scope: %{tenant: %{id: "tenant-123"}})
+
+  # Now the current process will receive messages like:
+  # {:created, %User{}}
+  # {:updated, %User{}}
+  # {:deleted, %User{}}
+  ```
+
+  ### Broadcasting Example
+
+  ```elixir
+  # Create a user
+  {:ok, user} = MyApp.Accounts.create_user(%{name: "Alice"})
+
+  # Broadcast the creation to all subscribers
+  MyApp.Accounts.broadcast_user({:created, user}, scope: %{tenant: %{id: "tenant-123"}})
+  ```
   """
 
   alias ContextKit.Paginator
@@ -106,6 +156,19 @@ defmodule ContextKit.CRUD do
     repo = Keyword.fetch!(opts, :repo)
     schema = Keyword.fetch!(opts, :schema)
     queries = Keyword.fetch!(opts, :queries)
+    scopes = Keyword.get(opts, :scopes, [])
+
+    default_scope =
+      Enum.find_value(scopes, fn {_key, value} ->
+        if Keyword.get(value, :default), do: value
+      end)
+
+    scope_access_path =
+      if default_scope do
+        Keyword.fetch!(default_scope, :access_path)
+      end
+
+    pubsub = Keyword.get(opts, :pubsub)
     except = Keyword.get(opts, :except, [])
     plural_resource_name = Keyword.get(opts, :plural_resource_name, nil)
     schema_name = schema |> Macro.expand(__CALLER__) |> Module.split() |> List.last()
@@ -117,6 +180,76 @@ defmodule ContextKit.CRUD do
       import Ecto.Query
 
       alias unquote(schema)
+
+      unless :subscribe in unquote(except) do
+        @doc """
+          Subscribes to the scoped #{unquote(schema_name)} topic via PubSub.
+
+        ## Examples
+
+            iex> subscribe_#{unquote(plural_resource_name)}(scope: socket.assigns.current_scope)
+            :ok
+
+            # This subscribes to something like `user:123:#{unquote(plural_resource_name)}`, assuming
+            # that `scope` is based on the `:user`.
+        """
+        @spec unquote(:"subscribe_#{plural_resource_name}")(opts :: Keyword.t()) ::
+                :ok | {:error, term()}
+        def unquote(:"subscribe_#{plural_resource_name}")(opts) when is_list(opts) do
+          scope =
+            Keyword.get(opts, :scope) ||
+              raise "Missing `:scope` in #{unquote(:"subscribe_#{plural_resource_name}")} opts"
+
+          if !unquote(pubsub), do: raise("Missing :pubsub option in `use ContextKit.CRUD`")
+
+          access = unquote(scope_access_path) |> Enum.map(&Access.key!(&1))
+          key = get_in(scope, access)
+          top_level_key = unquote(scope_access_path) |> List.first()
+          pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
+
+          Phoenix.PubSub.subscribe(
+            unquote(pubsub),
+            pubsub_key
+          )
+        end
+      end
+
+      unless :broadcast in unquote(except) do
+        @doc """
+          Broadcasts a message to the scoped #{unquote(schema_name)} topic via PubSub.
+
+        ## Examples
+
+            iex> boradcast_#{unquote(resource_name)}({:created, #{unquote(resource_name)}}, scope: socket.assigns.current_scope)
+            :ok
+
+            # This broadcasts teh message `{created, #{unquote(resource_name)}}` to the topic like `user:123:#{unquote(plural_resource_name)}`, assuming
+            # that `scope` is based on the `:user`.
+        """
+        @spec unquote(:"broadcast_#{resource_name}")(
+                message :: term(),
+                opts :: Keyword.t()
+              ) ::
+                :ok | {:error, term()}
+        def unquote(:"broadcast_#{resource_name}")(message, opts) when is_list(opts) do
+          scope =
+            Keyword.get(opts, :scope) ||
+              raise "Missing `:scope` in #{unquote(:"broadcast_#{resource_name}")} opts"
+
+          if !unquote(pubsub), do: raise("Missing :pubsub option in `use ContextKit.CRUD`")
+
+          access = unquote(scope_access_path) |> Enum.map(&Access.key!(&1))
+          key = get_in(scope, access)
+          top_level_key = unquote(scope_access_path) |> List.first()
+          pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
+
+          Phoenix.PubSub.broadcast(
+            unquote(pubsub),
+            pubsub_key,
+            message
+          )
+        end
+      end
 
       unless :list in unquote(except) do
         @doc """

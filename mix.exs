@@ -48,6 +48,7 @@ defmodule ContextKit.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:phoenix, ">= 1.7.0"},
       {:ecto, "~> 3.8"},
       {:ecto_sql, "~> 3.12"},
       {:ecto_sqlite3, ">= 0.0.0", only: :test},

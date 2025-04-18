@@ -3,6 +3,7 @@ defmodule ContextKit.CRUDTest do
 
   alias ContextKit.Book
   alias ContextKit.Books
+  alias ContextKit.Authors
   alias ContextKit.Author
   alias ContextKit.Test.Repo
 
@@ -10,6 +11,60 @@ defmodule ContextKit.CRUDTest do
     Repo.delete_all(Book)
     Repo.delete_all(Author)
     :ok
+  end
+
+  describe "subscribe_{:resource}/0-1" do
+    test "simple subscribe" do
+      assert :ok =
+               Authors.subscribe_authors(
+                 scope: %ContextKit.Scope{
+                   user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+                 }
+               )
+    end
+
+    test "requires scope key in opts" do
+      assert_raise(RuntimeError, "Missing `:scope` in subscribe_authors opts", fn ->
+        Authors.subscribe_authors([])
+      end)
+    end
+
+    test "requires scope value in opts" do
+      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
+        Authors.subscribe_authors(scope: true)
+      end)
+    end
+  end
+
+  describe "broadcast_{:resource}/1-2" do
+    test "simple broadcast" do
+      :ok =
+        Authors.subscribe_authors(
+          scope: %ContextKit.Scope{
+            user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+          }
+        )
+
+      Authors.broadcast_author({:created, 1},
+        scope: %ContextKit.Scope{
+          user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+        }
+      )
+
+      assert_receive {:created, 1}
+    end
+
+    test "requires scope key in opts" do
+      assert_raise(RuntimeError, "Missing `:scope` in broadcast_author opts", fn ->
+        Authors.broadcast_author({:created, 1}, [])
+      end)
+    end
+
+    test "requires scope value in opts" do
+      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
+        Authors.broadcast_author({:created, 1}, scope: true)
+      end)
+    end
   end
 
   describe "list_{:resource}/0-1" do

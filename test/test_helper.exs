@@ -13,6 +13,33 @@ end
 
 _ = Ecto.Adapters.SQLite3.storage_up(ContextKit.Test.Repo.config())
 
+defmodule ContextKit.User do
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  schema "users" do
+    field :email, :string
+  end
+end
+
+defmodule ContextKit.Scope do
+  alias ContextKit.User
+
+  defstruct user: nil
+
+  @doc """
+  Creates a scope for the given user.
+
+  Returns nil if no user is given.
+  """
+  def for_user(%User{} = user) do
+    %__MODULE__{user: user}
+  end
+
+  def for_user(nil), do: nil
+end
+
 defmodule ContextKit.Author do
   use Ecto.Schema
 
@@ -20,6 +47,8 @@ defmodule ContextKit.Author do
 
   schema "authors" do
     field :name, :string
+
+    belongs_to :user, ContextKit.User
 
     timestamps()
 
@@ -67,12 +96,21 @@ defmodule ContextKit.Authors do
   use ContextKit.CRUD,
     schema: ContextKit.Author,
     repo: ContextKit.Test.Repo,
-    queries: __MODULE__
+    queries: __MODULE__,
+    scopes: [
+      user: [
+        default: true,
+        module: ContextKit.Scope,
+        access_path: [:user, :id]
+      ]
+    ],
+    pubsub: ContextKit.PubSub
 end
 
 Supervisor.start_link(
   [
     ContextKit.Test.Repo,
+    {Phoenix.PubSub, name: ContextKit.PubSub},
     {Ecto.Migrator,
      repos: [ContextKit.Test.Repo],
      migrator: fn repo, :up, opts ->
