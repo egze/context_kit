@@ -20,6 +20,8 @@ defmodule ContextKit.User do
 
   schema "users" do
     field :email, :string
+
+    timestamps()
   end
 end
 
@@ -101,10 +103,15 @@ defmodule ContextKit.Authors do
       user: [
         default: true,
         module: ContextKit.Scope,
+        schema_key: :user_id,
         access_path: [:user, :id]
       ]
     ],
     pubsub: ContextKit.PubSub
+
+  def apply_query_option({:scope, scope}, query) do
+    where(query, [author: author], author.user_id == ^scope.user.id)
+  end
 end
 
 Supervisor.start_link(
