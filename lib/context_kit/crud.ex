@@ -30,7 +30,7 @@ defmodule ContextKit.CRUD do
     * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
     * `:plural_resource_name` - Custom plural name for list functions (defaults to singular + "s")
     * `:pubsub` - The Phoenix.PubSub module to use for real-time features (required for subscription features)
-      * `:scopes` - Map of scope configurations for subscription and broadcast features
+    * `:scopes` - Map of scope configurations for subscription and broadcast features
 
   ## Generated Functions
 
