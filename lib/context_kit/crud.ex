@@ -199,6 +199,12 @@ defmodule ContextKit.CRUD do
     schema = Keyword.fetch!(opts, :schema)
     queries = Keyword.fetch!(opts, :queries)
     scope = Keyword.get(opts, :scope)
+
+    {scope_evaled, _} =
+      if scope, do: Code.eval_quoted(scope), else: {[], nil}
+
+    scope_module = Keyword.get(scope_evaled, :module)
+    scope_access_path = Keyword.get(scope_evaled, :access_path)
     pubsub = Keyword.get(opts, :pubsub)
     except = Keyword.get(opts, :except, [])
     plural_resource_name = Keyword.get(opts, :plural_resource_name, nil)
@@ -229,12 +235,12 @@ defmodule ContextKit.CRUD do
               # This subscribes to something like `user:123:#{unquote(plural_resource_name)}`, assuming
               # that `scope` is based on the `:user`.
           """
-          @spec unquote(:"subscribe_#{plural_resource_name}")(scope :: unquote(scope[:module]).t()) ::
+          @spec unquote(:"subscribe_#{plural_resource_name}")(scope :: unquote(scope_module).t()) ::
                   :ok | {:error, term()}
-          def unquote(:"subscribe_#{plural_resource_name}")(%unquote(scope[:module]){} = scope) do
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+          def unquote(:"subscribe_#{plural_resource_name}")(%unquote(scope_module){} = scope) do
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             key = get_in(scope, access)
-            top_level_key = List.first(unquote(scope[:access_path]))
+            top_level_key = List.first(unquote(scope_access_path))
             pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
 
             Phoenix.PubSub.subscribe(
@@ -259,14 +265,14 @@ defmodule ContextKit.CRUD do
               # that `scope` is based on the `:user`.
           """
           @spec unquote(:"broadcast_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   message :: term()
                 ) ::
                   :ok | {:error, term()}
-          def unquote(:"broadcast_#{resource_name}")(%unquote(scope[:module]){} = scope, message) do
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+          def unquote(:"broadcast_#{resource_name}")(%unquote(scope_module){} = scope, message) do
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             key = get_in(scope, access)
-            top_level_key = List.first(unquote(scope[:access_path]))
+            top_level_key = List.first(unquote(scope_access_path))
             pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
 
             Phoenix.PubSub.broadcast(
@@ -324,7 +330,7 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
-          def unquote(:"list_#{plural_resource_name}")(%unquote(scope[:module]){} = scope, opts \\ []) do
+          def unquote(:"list_#{plural_resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
             unquote(:"list_#{plural_resource_name}")(opts)
@@ -384,12 +390,12 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @spec unquote(:"get_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   id :: integer() | String.t(),
                   opts :: Keyword.t()
                 ) ::
                   :ok | {:error, term()}
-          def unquote(:"get_#{resource_name}")(%unquote(scope[:module]){} = scope, id, opts \\ []) do
+          def unquote(:"get_#{resource_name}")(%unquote(scope_module){} = scope, id, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
             unquote(:"get_#{resource_name}")(id, opts)
@@ -448,12 +454,12 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @spec unquote(:"get_#{resource_name}!")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   id :: integer() | String.t(),
                   opts :: Keyword.t()
                 ) ::
                   :ok | {:error, term()}
-          def unquote(:"get_#{resource_name}!")(%unquote(scope[:module]){} = scope, id, opts \\ []) do
+          def unquote(:"get_#{resource_name}!")(%unquote(scope_module){} = scope, id, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
             unquote(:"get_#{resource_name}!")(id, opts)
@@ -502,11 +508,11 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @spec unquote(:"one_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   opts :: Keyword.t()
                 ) ::
                   :ok | {:error, term()}
-          def unquote(:"one_#{resource_name}")(%unquote(scope[:module]){} = scope, opts \\ []) do
+          def unquote(:"one_#{resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
             unquote(:"one_#{resource_name}")(opts)
@@ -551,11 +557,11 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @spec unquote(:"one_#{resource_name}!")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   opts :: Keyword.t()
                 ) ::
                   :ok | {:error, term()}
-          def unquote(:"one_#{resource_name}!")(%unquote(scope[:module]){} = scope, opts \\ []) do
+          def unquote(:"one_#{resource_name}!")(%unquote(scope_module){} = scope, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
             unquote(:"one_#{resource_name}!")(opts)
@@ -633,12 +639,12 @@ defmodule ContextKit.CRUD do
               {:ok, %#{unquote(schema_name)}{}}
           """
           @spec unquote(:"delete_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   resource :: unquote(schema).t()
                 ) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-          def unquote(:"delete_#{resource_name}")(%unquote(scope[:module]){} = scope, %unquote(schema){} = resource) do
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+          def unquote(:"delete_#{resource_name}")(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
             schema_access_key = Access.key!(unquote(scope[:schema_key]))
 
@@ -694,17 +700,17 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @spec unquote(:"change_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   resource :: unquote(schema).t(),
                   params :: map()
                 ) :: Ecto.Changeset.t()
           def unquote(:"change_#{resource_name}")(
-                %unquote(scope[:module]){} = scope,
+                %unquote(scope_module){} = scope,
                 %unquote(schema){} = resource,
                 params \\ %{}
               )
               when is_map(params) do
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
             schema_access_key = Access.key!(unquote(scope[:schema_key]))
 
@@ -747,9 +753,9 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
-          @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope[:module]).t(), params :: map()) ::
+          @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-          def unquote(:"create_#{resource_name}")(%unquote(scope[:module]){} = scope, params) when is_map(params) do
+          def unquote(:"create_#{resource_name}")(%unquote(scope_module){} = scope, params) when is_map(params) do
             changeset = unquote(schema).changeset(%unquote(schema){}, params, scope)
 
             with {:ok, %unquote(schema){} = resource} <-
@@ -790,9 +796,9 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
-          @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope[:module]).t(), params :: map()) ::
+          @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-          def unquote(:"create_#{resource_name}!")(%unquote(scope[:module]){} = scope, params) when is_map(params) do
+          def unquote(:"create_#{resource_name}!")(%unquote(scope_module){} = scope, params) when is_map(params) do
             changeset = unquote(schema).changeset(%unquote(schema){}, params, scope)
 
             with %unquote(schema){} = resource <-
@@ -849,20 +855,16 @@ defmodule ContextKit.CRUD do
               {:ok, %Ecto.Changeset{}}
           """
           @spec unquote(:"update_#{resource_name}")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   resource :: unquote(schema).t(),
                   params :: map()
                 ) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-          def unquote(:"update_#{resource_name}")(
-                %unquote(scope[:module]){} = scope,
-                %unquote(schema){} = resource,
-                params
-              )
+          def unquote(:"update_#{resource_name}")(%unquote(scope_module){} = scope, %unquote(schema){} = resource, params)
               when is_map(params) do
             changeset = unquote(schema).changeset(resource, params, scope)
 
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
             schema_access_key = Access.key!(unquote(scope[:schema_key]))
 
@@ -926,15 +928,15 @@ defmodule ContextKit.CRUD do
               Ecto.StaleEntryError
           """
           @spec unquote(:"update_#{resource_name}!")(
-                  scope :: unquote(scope[:module]).t(),
+                  scope :: unquote(scope_module).t(),
                   resource :: unquote(schema).t(),
                   params :: map()
                 ) ::
                   {:ok, unquote(schema).t()} | Ecto.Changeset.t()
-          def unquote(:"update_#{resource_name}!")(%unquote(scope[:module]){} = scope, resource, params) do
+          def unquote(:"update_#{resource_name}!")(%unquote(scope_module){} = scope, resource, params) do
             changeset = unquote(schema).changeset(resource, params, scope)
 
-            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
             schema_access_key = Access.key!(unquote(scope[:schema_key]))
 
@@ -961,8 +963,8 @@ defmodule ContextKit.CRUD do
       end
 
       if unquote(scope) do
-        def apply_query_option({:scope, %unquote(scope[:module]){} = scope}, query) do
-          access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+        def apply_query_option({:scope, %unquote(scope_module){} = scope}, query) do
+          access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
           scope_value = get_in(scope, access)
           schema_access_key = unquote(scope[:schema_key])
 
