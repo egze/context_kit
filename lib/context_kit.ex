@@ -86,7 +86,7 @@ defmodule ContextKit do
       schema: MyApp.Accounts.User,
       queries: MyApp.Accounts.UserQueries,
       pubsub: MyApp.PubSub,
-      scope: Application.get_env(:my_app, :scopes)[:user]
+      scope: Application.compile_env(:my_app, :scopes)[:user]
   end
   ```
 

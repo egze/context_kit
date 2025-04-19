@@ -17,7 +17,7 @@ defmodule ContextKit.CRUD do
       except: [:delete],                    # Optional: exclude specific operations
       plural_resource_name: "users",        # Optional: customize plural name
       pubsub: MyApp.PubSub,                 # Optional: for realtime notifications via PubSub
-      scope: Application.get_env(:my_app, :scopes)[:user] # Optional: to gain support for Phoenix 1.8 scopes.
+      scope: Application.compile_env(:my_app, :scopes)[:user] # Optional: to gain support for Phoenix 1.8 scopes.
   end
   ```
 
@@ -149,7 +149,7 @@ defmodule ContextKit.CRUD do
   Usually you configure it with the same scope that you use in your Phoenix application:
 
   ```elixir
-  scope: Application.get_env(:my_app, :scopes)[:user],
+  scope: Application.compile_env(:my_app, :scopes)[:user],
   pubsub: MyApp.PubSub # pubsub config is required for scopes
   ```
 
@@ -157,7 +157,7 @@ defmodule ContextKit.CRUD do
 
   ### Scope Configuration
 
-  If you pass in the scope with `Application.get_env(:my_app, :scopes)[:my_scope]` - it will work automatically. You can also configure the scope manually. The scope configuration should be a keyword list with the following keys:
+  If you pass in the scope with `Application.compile_env(:my_app, :scopes)[:my_scope]` - it will work automatically. You can also configure the scope manually. The scope configuration should be a keyword list with the following keys:
 
   * `:module` - The module that defines the scope struct
   * `:access_path` - Path to access the scoping value (e.g., `[:user, :id]` for user ID)
