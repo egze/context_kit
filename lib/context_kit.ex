@@ -41,7 +41,7 @@ defmodule ContextKit do
   end
   ```
 
-  ### 3. Use ContextKit.CRUD in your context:
+  ### 3. Use `ContextKit.CRUD` or `ContextKit.CRUD.WithScope` in your context:
 
   ```elixir
   defmodule MyApp.Accounts do
@@ -49,6 +49,17 @@ defmodule ContextKit do
       repo: MyApp.Repo,
       schema: MyApp.Accounts.User,
       queries: MyApp.Accounts.UserQueries
+  end
+  ```
+
+  ```elixir
+  defmodule MyApp.Accounts do
+    use ContextKit.CRUD,
+      repo: MyApp.Repo,
+      schema: MyApp.Accounts.User,
+      queries: MyApp.Accounts.UserQueries,
+      pubsub: MyApp.PubSub,
+      scope: Application.get_env(:my_app, :scopes)[:user]
   end
   ```
 

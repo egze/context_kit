@@ -3,8 +3,8 @@ defmodule ContextKit.QueryTest do
 
   import Ecto.Query
 
-  alias ContextKit.Query
   alias ContextKit.Book
+  alias ContextKit.Query
 
   describe "new/1" do
     test "builds new query" do

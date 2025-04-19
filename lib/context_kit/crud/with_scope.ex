@@ -1,8 +1,8 @@
-defmodule ContextKit.CRUD do
+defmodule ContextKit.CRUD.WithScope do
   @moduledoc """
-  The `ContextKit.CRUD` module provides a convenient way to generate standard CRUD (Create, Read, Update, Delete)
-  operations for your Ecto schemas. It reduces boilerplate code by automatically generating commonly used database
-  interaction functions.
+  The `ContextKit.CRUD.WothScope` module provides a convenient way to generate standard CRUD (Create, Read, Update, Delete) operations for your Ecto schemas. It reduces boilerplate code by automatically generating commonly used database interaction functions.
+
+  Additionally in supports scopes from Phoenix 1.8.
 
   ## Setup
 
@@ -10,12 +10,14 @@ defmodule ContextKit.CRUD do
 
   ```elixir
   defmodule MyApp.Accounts do
-    use ContextKit.CRUD,
+    use ContextKit.CRUD.WithScope,
       repo: MyApp.Repo,
       schema: MyApp.Accounts.User,
       queries: MyApp.Accounts.UserQueries,
       except: [:delete],                    # Optional: exclude specific operations
       plural_resource_name: "users"         # Optional: customize plural name
+      pubsub: MyApp.PubSub                  # Optional: for realtime notifications via PubSub
+      scope: Application.get_env(:my_app, :scopes)[:user]
   end
   ```
 
@@ -29,6 +31,8 @@ defmodule ContextKit.CRUD do
 
     * `:except` - List of operation types to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
     * `:plural_resource_name` - Custom plural name for list functions (defaults to singular + "s")
+    * `:pubsub` - The Phoenix.PubSub module to use for real-time features (required for subscription features)
+    * `:scopes` - Map of scope configurations for subscription and broadcast features
 
   ## Generated Functions
 
@@ -49,18 +53,22 @@ defmodule ContextKit.CRUD do
     * `one_user!/1` - Like `one_user/1` but raises if not found
 
   ### Create Operations
-    * `create_user/1` - Creates a new user with provided attributes
-    * `create_user!/1` - Like `create_user/1` but raises on invalid attributes
+    * `create_user/1-2` - Creates a new user with provided attributes
+    * `create_user!/1-2` - Like `create_user/1` but raises on invalid attributes
 
   ### Update Operations
-    * `update_user/2` - Updates user with provided attributes
-    * `update_user!/2` - Like `update_user/2` but raises on invalid attributes
+    * `update_user/2-3` - Updates user with provided attributes
+    * `update_user!/2-3` - Like `update_user/2` but raises on invalid attributes
 
   ### Change Operations
     * `change_user/2` - Returns a changeset for the user with optional changes
 
   ### Delete Operations
     * `delete_user/1` - Deletes a user struct or by query criteria
+
+  ### PubSub Operations
+    * `subscribe_users/1` - Subscribes to the scoped users topic
+    * `broadcast_user/2` - Broadcasts a message to the scoped users topic
 
   ## Query Options
 
@@ -77,26 +85,89 @@ defmodule ContextKit.CRUD do
   # List all users
   MyApp.Accounts.list_users()
 
+  # List all users with scope
+  MyApp.Accounts.list_users(scope: socket.assigns.current_scope)
+
   # List active users with pagination
   MyApp.Accounts.list_users(status: :active, paginate: [page: 1])
 
   # Get user by ID with preloads
   MyApp.Accounts.get_user(123, preload: [:posts])
 
+  # Get user by ID with scope
+  MyApp.Accounts.get_user(123, scope: socket.assigns.current_scope)
+
   # Create a new user
   MyApp.Accounts.create_user(%{email: "new@example.com"})
+
+  # Create a new user with scope
+  MyApp.Accounts.create_user(%{email: "new@example.com"}, scope: socket.assigns.current_scope)
 
   # Update a user
   MyApp.Accounts.update_user(user, %{email: "updated@example.com"})
 
+  # Update a user with scope
+  MyApp.Accounts.update_user(user, %{email: "updated@example.com"}, scope: socket.assigns.current_scope)
+
   # Get a changeset for updates
   MyApp.Accounts.change_user(user, %{email: "changed@example.com"})
+
+  # Get a changeset for updates with scope
+  MyApp.Accounts.change_user(user, %{email: "changed@example.com"}, scope: socket.assigns.current_scope)
+
+  # Delete user
+  MyApp.Accounts.delete_user(user)
+
+  # Delete user with scope
+  MyApp.Accounts.delete_user(user, scope: socket.assigns.current_scope)
 
   # Delete user matching criteria
   MyApp.Accounts.delete_user(email: "user@example.com")
   ```
 
   Each generated function can be overridden in your context module if you need custom behavior.
+
+  ## Scope
+
+  [Read more about scopes](https://hexdocs.pm/phoenix/1.8.0-rc.0/scopes.html).
+
+  A scope is a data structure used to keep information about the current request or session, such as the current user logged in, the organization/company it belongs to, permissions, and so on. By using scopes, you have a single data structure that contains all relevant information, which is then passed around so all of your operations are properly scoped.
+
+
+  Usually you configure it with the same scope that you use in your Phoenix application. Keep in mind that you pass a specific scope, instead of all of them.
+
+  For example:
+
+  ```elixir
+  scope: Application.get_env(:my_app, :scopes)[:user]
+  ```
+
+  ### Subscription Example
+
+  ```elixir
+  # Subscribe to scoped updates for users
+  MyApp.Accounts.subscribe_users(scope: socket.assigns.current_scope)
+
+  # Now the current process will receive messages like:
+  # {:created, %User{}}
+  # {:updated, %User{}}
+  # {:deleted, %User{}}
+  ```
+
+  ### Broadcasting Example
+
+  ```elixir
+  # Broadcast the creation to all subscribers for current scope.
+  MyApp.Things.broadcast_thing({:something, thing}, scope: socket.assigns.current_scope)
+  ```
+
+  Following messages are also broadcasted automatically for all create, update, delete operations.
+
+  ```elixir
+  {:created, %Thing{}}
+  {:updated, %Thing{}}
+  {:deleted, %Thing{}}
+  ```
   """
 
   alias ContextKit.Paginator
@@ -106,6 +177,8 @@ defmodule ContextKit.CRUD do
     repo = Keyword.fetch!(opts, :repo)
     schema = Keyword.fetch!(opts, :schema)
     queries = Keyword.fetch!(opts, :queries)
+    scope = Keyword.fetch!(opts, :scope)
+    pubsub = Keyword.get(opts, :pubsub)
     except = Keyword.get(opts, :except, [])
     plural_resource_name = Keyword.get(opts, :plural_resource_name, nil)
     schema_name = schema |> Macro.expand(__CALLER__) |> Module.split() |> List.last()
@@ -117,6 +190,66 @@ defmodule ContextKit.CRUD do
       import Ecto.Query
 
       alias unquote(schema)
+
+      if :subscribe not in unquote(except) and unquote(pubsub) do
+        @doc """
+          Subscribes to the scoped #{unquote(schema_name)} topic via PubSub.
+
+        ## Examples
+
+            iex> subscribe_#{unquote(plural_resource_name)}(scope: socket.assigns.current_scope)
+            :ok
+
+            # This subscribes to something like `user:123:#{unquote(plural_resource_name)}`, assuming
+            # that `scope` is based on the `:user`.
+        """
+        @spec unquote(:"subscribe_#{plural_resource_name}")(opts :: Keyword.t()) ::
+                :ok | {:error, term()}
+        def unquote(:"subscribe_#{plural_resource_name}")(opts) when is_list(opts) do
+          scope = Keyword.fetch!(opts, :scope)
+          access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+          key = get_in(scope, access)
+          top_level_key = List.first(unquote(scope[:access_path]))
+          pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
+
+          Phoenix.PubSub.subscribe(
+            unquote(pubsub),
+            pubsub_key
+          )
+        end
+      end
+
+      if :broadcast not in unquote(except) and unquote(pubsub) do
+        @doc """
+          Broadcasts a message to the scoped #{unquote(schema_name)} topic via PubSub.
+
+        ## Examples
+
+            iex> boradcast_#{unquote(resource_name)}({:created, #{unquote(resource_name)}}, scope: socket.assigns.current_scope)
+            :ok
+
+            # This broadcasts teh message `{created, #{unquote(resource_name)}}` to the topic like `user:123:#{unquote(plural_resource_name)}`, assuming
+            # that `scope` is based on the `:user`.
+        """
+        @spec unquote(:"broadcast_#{resource_name}")(
+                message :: term(),
+                opts :: Keyword.t()
+              ) ::
+                :ok | {:error, term()}
+        def unquote(:"broadcast_#{resource_name}")(message, opts) when is_list(opts) do
+          scope = Keyword.fetch!(opts, :scope)
+          access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+          key = get_in(scope, access)
+          top_level_key = List.first(unquote(scope[:access_path]))
+          pubsub_key = "#{top_level_key}:#{key}:#{unquote(plural_resource_name)}"
+
+          Phoenix.PubSub.broadcast(
+            unquote(pubsub),
+            pubsub_key,
+            message
+          )
+        end
+      end
 
       if :list not in unquote(except) do
         @doc """
@@ -318,22 +451,6 @@ defmodule ContextKit.CRUD do
 
       if :delete not in unquote(except) do
         @doc """
-        Deletes a single `%#{unquote(schema_name)}{}`.
-
-        Returns `{:ok, %#{unquote(schema_name)}{}}` if successful or `{:error, changeset}` if the resource could not be deleted.
-
-        ## Examples
-
-            iex> delete_#{unquote(resource_name)}(#{unquote(resource_name)})
-            {:ok, %#{unquote(schema_name)}{}}
-        """
-        @spec unquote(:"delete_#{resource_name}")(resource :: unquote(schema).t()) ::
-                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-        def unquote(:"delete_#{resource_name}")(%unquote(schema){} = resource) do
-          unquote(repo).delete(resource)
-        end
-
-        @doc """
         Deletes a single `%#{unquote(schema_name)}{}` by query via `opts`.
 
         Returns `{:ok, %#{unquote(schema_name)}{}}` if successful or `{:error, changeset}` if the resource could not be deleted.
@@ -345,7 +462,7 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"delete_#{resource_name}")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
                 {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-        def(unquote(:"delete_#{resource_name}")(opts)) do
+        def unquote(:"delete_#{resource_name}")(opts) when is_list(opts) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -365,7 +482,45 @@ defmodule ContextKit.CRUD do
             {:error, :multiple_entries_found}
         end
 
+        @doc """
+        Deletes a single `%#{unquote(schema_name)}{}`.
+
+        Returns `{:ok, %#{unquote(schema_name)}{}}` if successful or `{:error, changeset}` if the resource could not be deleted.
+
+        ## Examples
+
+            iex> delete_#{unquote(resource_name)}(#{unquote(resource_name)})
+            {:ok, %#{unquote(schema_name)}{}}
+        """
+        @spec unquote(:"delete_#{resource_name}")(
+                resource :: unquote(schema).t(),
+                opts :: Keyword.t()
+              ) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"delete_#{resource_name}")(%unquote(schema){} = resource, opts \\ []) when is_list(opts) do
+          scope = Keyword.get(opts, :scope)
+
+          if scope do
+            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            scope_value = get_in(scope, access)
+            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+
+            if get_in(resource, [schema_access_key]) != scope_value do
+              raise "Record not in scope"
+            end
+
+            with {:ok, %unquote(schema){} = resource} <-
+                   unquote(repo).delete(resource) do
+              unquote(:"broadcast_#{resource_name}")({:deleted, resource}, scope: scope)
+              {:ok, resource}
+            end
+          else
+            unquote(repo).delete(resource)
+          end
+        end
+
         defoverridable [{unquote(:"delete_#{resource_name}"), 1}]
+        defoverridable [{unquote(:"delete_#{resource_name}"), 2}]
       end
 
       if :change not in unquote(except) do
@@ -379,10 +534,34 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"change_#{resource_name}")(
                 resource :: unquote(schema).t(),
-                params :: map()
+                opts :: Keyword.t()
               ) :: Ecto.Changeset.t()
-        def(unquote(:"change_#{resource_name}")(%unquote(schema){} = resource, params \\ %{})) do
-          unquote(schema).changeset(resource, params)
+        def unquote(:"change_#{resource_name}")(%unquote(schema){} = resource, opts) when is_list(opts) do
+          unquote(:"change_#{resource_name}")(resource, %{}, opts)
+        end
+
+        @spec unquote(:"change_#{resource_name}")(
+                resource :: unquote(schema).t(),
+                params :: map(),
+                opts :: Keyword.t()
+              ) :: Ecto.Changeset.t()
+        def unquote(:"change_#{resource_name}")(%unquote(schema){} = resource, params \\ %{}, opts \\ [])
+            when is_map(params) and is_list(opts) do
+          scope = Keyword.get(opts, :scope)
+
+          if scope do
+            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            scope_value = get_in(scope, access)
+            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+
+            if get_in(resource, [schema_access_key]) != scope_value do
+              raise "Record not in scope"
+            end
+
+            unquote(schema).changeset(resource, params, scope)
+          else
+            unquote(schema).changeset(resource, params)
+          end
         end
 
         defoverridable [{unquote(:"change_#{resource_name}"), 2}]
@@ -402,10 +581,21 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"create_#{resource_name}")(params :: map()) ::
                 {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-        def unquote(:"create_#{resource_name}")(params \\ %{}) do
-          %unquote(schema){}
-          |> unquote(schema).changeset(params)
-          |> unquote(repo).insert()
+        def unquote(:"create_#{resource_name}")(params, opts \\ []) do
+          scope = Keyword.get(opts, :scope)
+
+          changeset =
+            if scope do
+              unquote(schema).changeset(%unquote(schema){}, params, scope)
+            else
+              unquote(schema).changeset(%unquote(schema){}, params)
+            end
+
+          with {:ok, %unquote(schema){} = resource} <-
+                 unquote(repo).insert(changeset) do
+            if scope, do: unquote(:"broadcast_#{resource_name}")({:created, resource}, scope: scope)
+            {:ok, resource}
+          end
         end
 
         @doc """
@@ -421,16 +611,28 @@ defmodule ContextKit.CRUD do
             iex> create_#{unquote(resource_name)}!(invalid_params)
             Ecto.StaleEntryError
         """
-        @spec unquote(:"create_#{resource_name}!")(params :: map()) :: unquote(schema).t()
-        def unquote(:"create_#{resource_name}!")(params \\ %{}) do
-          %unquote(schema){}
-          |> unquote(schema).changeset(params)
-          |> unquote(repo).insert!()
+        @spec unquote(:"create_#{resource_name}!")(params :: map(), opts :: Keyword.t()) ::
+                unquote(schema).t()
+        def unquote(:"create_#{resource_name}!")(params, opts \\ []) do
+          scope = Keyword.get(opts, :scope)
+
+          if scope do
+            changeset = unquote(schema).changeset(%unquote(schema){}, params, scope)
+
+            with %unquote(schema){} = resource <- unquote(repo).insert!(changeset) do
+              unquote(:"broadcast_#{resource_name}")({:created, resource}, scope: scope)
+              resource
+            end
+          else
+            %unquote(schema){}
+            |> unquote(schema).changeset(params)
+            |> unquote(repo).insert!()
+          end
         end
 
         defoverridable [
-          {unquote(:"create_#{resource_name}"), 1},
-          {unquote(:"create_#{resource_name}!"), 1}
+          {unquote(:"create_#{resource_name}"), 2},
+          {unquote(:"create_#{resource_name}!"), 2}
         ]
       end
 
@@ -448,13 +650,34 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"update_#{resource_name}")(
                 resource :: unquote(schema).t(),
-                params :: map()
+                params :: map(),
+                opts :: Keyword.t()
               ) ::
                 {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
-        def unquote(:"update_#{resource_name}")(resource, params \\ %{}) do
-          resource
-          |> unquote(schema).changeset(params)
-          |> unquote(repo).update()
+        def unquote(:"update_#{resource_name}")(resource, params, opts \\ []) do
+          scope = Keyword.get(opts, :scope)
+
+          if scope do
+            changeset = unquote(schema).changeset(resource, params, scope)
+
+            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            scope_value = get_in(scope, access)
+            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+
+            if get_in(resource, [schema_access_key]) != scope_value do
+              raise "Record not in scope"
+            end
+
+            with {:ok, %unquote(schema){} = resource} <-
+                   unquote(repo).update(changeset) do
+              unquote(:"broadcast_#{resource_name}")({:updated, resource}, scope: scope)
+              {:ok, resource}
+            end
+          else
+            resource
+            |> unquote(schema).changeset(params)
+            |> unquote(repo).update()
+          end
         end
 
         @doc """
@@ -472,19 +695,48 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"update_#{resource_name}!")(
                 resource :: unquote(schema).t(),
-                params :: map()
+                params :: map(),
+                opts :: Keyword.t()
               ) ::
                 {:ok, unquote(schema).t()} | Ecto.Changeset.t()
-        def unquote(:"update_#{resource_name}!")(resource, params \\ %{}) do
-          resource
-          |> unquote(schema).changeset(params)
-          |> unquote(repo).update!()
+        def unquote(:"update_#{resource_name}!")(resource, params, opts \\ []) do
+          scope = Keyword.get(opts, :scope)
+
+          if scope do
+            changeset = unquote(schema).changeset(resource, params, scope)
+
+            access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+            scope_value = get_in(scope, access)
+            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+
+            if get_in(resource, [schema_access_key]) != scope_value do
+              raise "Record not in scope"
+            end
+
+            with %unquote(schema){} = resource <-
+                   unquote(repo).update!(changeset) do
+              unquote(:"broadcast_#{resource_name}")({:updated, resource}, scope: scope)
+              resource
+            end
+          else
+            resource
+            |> unquote(schema).changeset(params)
+            |> unquote(repo).update!()
+          end
         end
 
         defoverridable [
-          {unquote(:"update_#{resource_name}"), 2},
-          {unquote(:"update_#{resource_name}!"), 2}
+          {unquote(:"update_#{resource_name}"), 3},
+          {unquote(:"update_#{resource_name}!"), 3}
         ]
+      end
+
+      def apply_query_option({:scope, %unquote(scope[:module]){} = scope}, query) do
+        access = Enum.map(unquote(scope[:access_path]), &Access.key!(&1))
+        scope_value = get_in(scope, access)
+        schema_access_key = unquote(scope[:schema_key])
+
+        where(query, [record], field(record, ^schema_access_key) == ^scope_value)
       end
     end
   end

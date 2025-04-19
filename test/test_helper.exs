@@ -14,6 +14,7 @@ end
 _ = Ecto.Adapters.SQLite3.storage_up(ContextKit.Test.Repo.config())
 
 defmodule ContextKit.User do
+  @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -26,6 +27,7 @@ defmodule ContextKit.User do
 end
 
 defmodule ContextKit.Scope do
+  @moduledoc false
   alias ContextKit.User
 
   defstruct user: nil
@@ -43,6 +45,7 @@ defmodule ContextKit.Scope do
 end
 
 defmodule ContextKit.Author do
+  @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -50,20 +53,19 @@ defmodule ContextKit.Author do
   schema "authors" do
     field :name, :string
 
-    belongs_to :user, ContextKit.User
-
     timestamps()
 
     has_many :books, ContextKit.Book
+    has_many :scoped_books, ContextKit.ScopedBook
   end
 
   def changeset(schema, params) do
-    schema
-    |> cast(params, [:name])
+    cast(schema, params, [:name])
   end
 end
 
 defmodule ContextKit.Book do
+  @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -83,7 +85,36 @@ defmodule ContextKit.Book do
   end
 end
 
+defmodule ContextKit.ScopedBook do
+  @moduledoc false
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  schema "scoped_books" do
+    field :title, :string
+
+    timestamps()
+
+    belongs_to :author, ContextKit.Author
+    belongs_to :user, ContextKit.User
+  end
+
+  def changeset(schema, params) do
+    schema
+    |> cast(params, [:title])
+    |> validate_required([:title])
+  end
+
+  def changeset(schema, params, user_scope) do
+    schema
+    |> cast(params, [:title])
+    |> put_change(:user_id, user_scope.user.id)
+  end
+end
+
 defmodule ContextKit.Books do
+  @moduledoc false
   use ContextKit.CRUD,
     schema: ContextKit.Book,
     repo: ContextKit.Test.Repo,
@@ -94,20 +125,30 @@ defmodule ContextKit.Books do
   end
 end
 
+defmodule ContextKit.ScopedBooks do
+  @moduledoc false
+  use ContextKit.CRUD.WithScope,
+    schema: ContextKit.ScopedBook,
+    repo: ContextKit.Test.Repo,
+    queries: __MODULE__,
+    pubsub: ContextKit.PubSub,
+    scope: [
+      schema_key: :user_id,
+      module: ContextKit.Scope,
+      access_path: [:user, :id]
+    ]
+
+  def apply_query_option({:author, author}, query) do
+    where(query, [book: book], book.author_id == ^author.id)
+  end
+end
+
 defmodule ContextKit.Authors do
+  @moduledoc false
   use ContextKit.CRUD,
     schema: ContextKit.Author,
     repo: ContextKit.Test.Repo,
-    queries: __MODULE__,
-    scopes: [
-      user: [
-        default: true,
-        module: ContextKit.Scope,
-        schema_key: :user_id,
-        access_path: [:user, :id]
-      ]
-    ],
-    pubsub: ContextKit.PubSub
+    queries: __MODULE__
 
   def apply_query_option({:scope, scope}, query) do
     where(query, [author: author], author.user_id == ^scope.user.id)

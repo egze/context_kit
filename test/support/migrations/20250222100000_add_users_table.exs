@@ -1,4 +1,5 @@
 defmodule ContextKit.Test.Repo.Migrations.AddUsersTable do
+  @moduledoc false
   use Ecto.Migration
 
   def change do

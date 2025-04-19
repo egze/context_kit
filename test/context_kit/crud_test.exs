@@ -2,72 +2,14 @@ defmodule ContextKit.CRUDTest do
   use ExUnit.Case, async: false
 
   alias ContextKit.Author
-  alias ContextKit.Authors
   alias ContextKit.Book
   alias ContextKit.Books
-  alias ContextKit.Scope
   alias ContextKit.Test.Repo
-  alias ContextKit.User
 
   setup do
     Repo.delete_all(Book)
     Repo.delete_all(Author)
-    Repo.delete_all(User)
     :ok
-  end
-
-  describe "subscribe_{:resource}/0-1" do
-    test "simple subscribe" do
-      assert :ok =
-               Authors.subscribe_authors(
-                 scope: %ContextKit.Scope{
-                   user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-                 }
-               )
-    end
-
-    test "requires scope key in opts" do
-      assert_raise(RuntimeError, "Missing `:scope` in subscribe_authors opts", fn ->
-        Authors.subscribe_authors([])
-      end)
-    end
-
-    test "requires scope value in opts" do
-      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
-        Authors.subscribe_authors(scope: true)
-      end)
-    end
-  end
-
-  describe "broadcast_{:resource}/1-2" do
-    test "simple broadcast" do
-      :ok =
-        Authors.subscribe_authors(
-          scope: %ContextKit.Scope{
-            user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-          }
-        )
-
-      Authors.broadcast_author({:created, 1},
-        scope: %ContextKit.Scope{
-          user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-        }
-      )
-
-      assert_receive {:created, 1}
-    end
-
-    test "requires scope key in opts" do
-      assert_raise(RuntimeError, "Missing `:scope` in broadcast_author opts", fn ->
-        Authors.broadcast_author({:created, 1}, [])
-      end)
-    end
-
-    test "requires scope value in opts" do
-      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
-        Authors.broadcast_author({:created, 1}, scope: true)
-      end)
-    end
   end
 
   describe "list_{:resource}/0-1" do
@@ -77,25 +19,6 @@ defmodule ContextKit.CRUDTest do
       assert [db_book] = Books.list_books()
 
       assert book.id == db_book.id
-    end
-
-    test "filters by scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      author_id = author.id
-
-      scope = %Scope{
-        user: user
-      }
-
-      wrong_scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert [%Author{id: ^author_id}] = Authors.list_authors(scope: scope)
-      assert [] = Authors.list_authors(scope: wrong_scope)
     end
 
     test "filters by fields in keyword list" do
@@ -210,25 +133,6 @@ defmodule ContextKit.CRUDTest do
       refute Books.get_book(book_id + 1)
     end
 
-    test "filters by scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      author_id = author.id
-
-      scope = %Scope{
-        user: user
-      }
-
-      wrong_scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert %Author{id: ^author_id} = Authors.get_author(author_id, scope: scope)
-      refute Authors.get_author(author_id, scope: wrong_scope)
-    end
-
     test "gets resource by id with options" do
       assert {:ok, author} = Repo.insert(%Author{name: "Bob"})
       assert {:ok, book} = Repo.insert(%Book{title: "My Book", author_id: author.id})
@@ -280,28 +184,6 @@ defmodule ContextKit.CRUDTest do
       end
     end
 
-    test "filters by scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      author_id = author.id
-
-      scope = %Scope{
-        user: user
-      }
-
-      wrong_scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert %Author{id: ^author_id} = Authors.get_author!(author_id, scope: scope)
-
-      assert_raise Ecto.NoResultsError, fn ->
-        Authors.get_author!(author_id, scope: wrong_scope)
-      end
-    end
-
     test "get! with options raises when resource not found" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})
       book_id = book.id
@@ -321,48 +203,6 @@ defmodule ContextKit.CRUDTest do
 
       assert %Book{id: ^book_id} = Books.one_book(title: "My Book")
       refute Books.one_book(title: "Wrong Title")
-    end
-
-    test "filters by scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      author_id = author.id
-
-      scope = %Scope{
-        user: user
-      }
-
-      wrong_scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert %Author{id: ^author_id} = Authors.one_author(name: "My Author", scope: scope)
-
-      refute Authors.one_author(name: "My Author", scope: wrong_scope)
-    end
-
-    test "one! filters by scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      author_id = author.id
-
-      scope = %Scope{
-        user: user
-      }
-
-      wrong_scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert %Author{id: ^author_id} = Authors.one_author!(name: "My Author", scope: scope)
-
-      assert_raise Ecto.NoResultsError, fn ->
-        Authors.one_author!(name: "My Author", scope: wrong_scope)
-      end
     end
 
     test "gets single resource with complex filters" do
@@ -432,35 +272,6 @@ defmodule ContextKit.CRUDTest do
       refute Books.get_book(book.id)
     end
 
-    test "deletes the resource struct with scope" do
-      assert {:ok, user} = Repo.insert(%User{email: "user@test.com"})
-      assert {:ok, author} = Repo.insert(%Author{name: "My Author", user_id: user.id})
-
-      assert {:ok, %Author{}} =
-               Authors.delete_author(author,
-                 scope: %Scope{
-                   user: user
-                 }
-               )
-
-      refute Authors.get_author(author.id)
-    end
-
-    test "raises error if user not in scope" do
-      assert {:ok, user} = Repo.insert(%User{email: "user@test.com"})
-      assert {:ok, author} = Repo.insert(%Author{name: "My Author", user_id: user.id})
-
-      assert_raise RuntimeError, "Record not in scope", fn ->
-        Authors.delete_author(author,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
-      end
-    end
-
     test "returns error when trying to delete non-existent resource by query" do
       assert {:error, :not_found} = Books.delete_book(title: "Non Existent")
     end
@@ -523,40 +334,6 @@ defmodule ContextKit.CRUDTest do
       assert changeset.valid?
     end
 
-    test "returns a changeset with scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-
-      scope = %Scope{
-        user: user
-      }
-
-      changeset = Authors.change_author(author, %{}, scope: scope)
-      assert %Ecto.Changeset{} = changeset
-      assert changeset.data == author
-      assert changeset.valid?
-
-      changeset = Authors.change_author(author, scope: scope)
-      assert %Ecto.Changeset{} = changeset
-      assert changeset.data == author
-      assert changeset.valid?
-    end
-
-    test "raises error if not in scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-
-      scope = %Scope{
-        user: %User{
-          id: user.id + 1
-        }
-      }
-
-      assert_raise RuntimeError, "Record not in scope", fn ->
-        Authors.change_author(author, scope: scope)
-      end
-    end
-
     test "applies changes when params are provided" do
       book = %Book{title: "Original Title"}
       params = %{title: "New Title"}
@@ -587,21 +364,6 @@ defmodule ContextKit.CRUDTest do
       assert book.id
     end
 
-    test "creates resource with scope and broadcasts message" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      attrs = %{name: "My Author"}
-
-      scope = %Scope{
-        user: user
-      }
-
-      Authors.subscribe_authors(scope: scope)
-
-      assert {:ok, author} = Authors.create_author(attrs, scope: scope)
-
-      assert_received {:created, ^author}
-    end
-
     test "returns error changeset with invalid attributes" do
       # Assuming title is required
       attrs = %{title: ""}
@@ -625,7 +387,7 @@ defmodule ContextKit.CRUDTest do
     end
   end
 
-  describe "update_{:resource}/2-3" do
+  describe "update_{:resource}/2" do
     test "updates resource with valid attributes" do
       book = Repo.insert!(%Book{title: "Original Title"})
       attrs = %{title: "Updated Title"}
@@ -633,55 +395,6 @@ defmodule ContextKit.CRUDTest do
       assert {:ok, %Book{} = updated_book} = Books.update_book(book, attrs)
       assert updated_book.title == "Updated Title"
       assert updated_book.id == book.id
-    end
-
-    test "updates resource with scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      attrs = %{name: "Updated Name"}
-
-      assert {:ok, %Author{} = updated_autor} =
-               Authors.update_author(author, attrs,
-                 scope: %Scope{
-                   user: user
-                 }
-               )
-
-      assert updated_autor.name == "Updated Name"
-      assert updated_autor.id == author.id
-    end
-
-    test "update broadcasts message" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      attrs = %{name: "Updated Name"}
-
-      scope = %Scope{
-        user: user
-      }
-
-      Authors.subscribe_authors(scope: scope)
-
-      assert {:ok, %Author{} = updated_autor} =
-               Authors.update_author(author, attrs, scope: scope)
-
-      assert_received {:updated, ^updated_autor}
-    end
-
-    test "update raises error if user not in scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      attrs = %{name: "Updated Name"}
-
-      assert_raise RuntimeError, "Record not in scope", fn ->
-        Authors.update_author(author, attrs,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
-      end
     end
 
     test "returns error changeset with invalid attributes" do
@@ -702,38 +415,6 @@ defmodule ContextKit.CRUDTest do
       assert %Book{} = updated_book = Books.update_book!(book, attrs)
       assert updated_book.title == "Updated Title"
       assert updated_book.id == book.id
-    end
-
-    test "update! raises error if user not in scope" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      attrs = %{name: "Updated Name"}
-
-      assert_raise RuntimeError, "Record not in scope", fn ->
-        Authors.update_author!(author, attrs,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
-      end
-    end
-
-    test "update! broadcasts message" do
-      user = Repo.insert!(%User{email: "user@test.com"})
-      author = Repo.insert!(%Author{name: "My Author", user_id: user.id})
-      attrs = %{name: "Updated Name"}
-
-      scope = %Scope{
-        user: user
-      }
-
-      Authors.subscribe_authors(scope: scope)
-
-      assert %Author{} = updated_author = Authors.update_author!(author, attrs, scope: scope)
-
-      assert_received {:updated, ^updated_author}
     end
 
     test "update! raises with invalid attributes" do
