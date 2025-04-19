@@ -127,7 +127,7 @@ end
 
 defmodule ContextKit.ScopedBooks do
   @moduledoc false
-  use ContextKit.CRUD.WithScope,
+  use ContextKit.CRUD,
     schema: ContextKit.ScopedBook,
     repo: ContextKit.Test.Repo,
     queries: __MODULE__,
