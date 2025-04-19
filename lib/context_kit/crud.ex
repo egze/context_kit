@@ -205,6 +205,7 @@ defmodule ContextKit.CRUD do
 
     scope_module = Keyword.get(scope_evaled, :module)
     scope_access_path = Keyword.get(scope_evaled, :access_path)
+    scope_schema_key = Keyword.get(scope_evaled, :schema_key)
     pubsub = Keyword.get(opts, :pubsub)
     except = Keyword.get(opts, :except, [])
     plural_resource_name = Keyword.get(opts, :plural_resource_name, nil)
@@ -646,7 +647,7 @@ defmodule ContextKit.CRUD do
           def unquote(:"delete_#{resource_name}")(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
             access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
-            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+            schema_access_key = Access.key!(unquote(scope_schema_key))
 
             if get_in(resource, [schema_access_key]) != scope_value do
               raise "Record not in scope"
@@ -712,7 +713,7 @@ defmodule ContextKit.CRUD do
               when is_map(params) do
             access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
-            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+            schema_access_key = Access.key!(unquote(scope_schema_key))
 
             if get_in(resource, [schema_access_key]) != scope_value do
               raise "Record not in scope"
@@ -866,7 +867,7 @@ defmodule ContextKit.CRUD do
 
             access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
-            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+            schema_access_key = Access.key!(unquote(scope_schema_key))
 
             if get_in(resource, [schema_access_key]) != scope_value do
               raise "Record not in scope"
@@ -938,7 +939,7 @@ defmodule ContextKit.CRUD do
 
             access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
             scope_value = get_in(scope, access)
-            schema_access_key = Access.key!(unquote(scope[:schema_key]))
+            schema_access_key = Access.key!(unquote(scope_schema_key))
 
             if get_in(resource, [schema_access_key]) != scope_value do
               raise "Record not in scope"
@@ -966,7 +967,7 @@ defmodule ContextKit.CRUD do
         def apply_query_option({:scope, %unquote(scope_module){} = scope}, query) do
           access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
           scope_value = get_in(scope, access)
-          schema_access_key = unquote(scope[:schema_key])
+          schema_access_key = unquote(scope_schema_key)
 
           where(query, [record], field(record, ^schema_access_key) == ^scope_value)
         end
