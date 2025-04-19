@@ -20,55 +20,25 @@ defmodule ContextKit.CRUD.WithScopeTest do
 
   describe "subscribe_{:resource}/0-1" do
     test "simple subscribe" do
-      assert :ok =
-               ScopedBooks.subscribe_scoped_books(
-                 scope: %ContextKit.Scope{
-                   user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-                 }
-               )
-    end
+      scope = %ContextKit.Scope{
+        user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+      }
 
-    test "requires scope key in opts" do
-      assert_raise(KeyError, "key :scope not found in: []", fn ->
-        ScopedBooks.subscribe_scoped_books([])
-      end)
-    end
-
-    test "requires scope value in opts" do
-      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
-        ScopedBooks.subscribe_scoped_books(scope: true)
-      end)
+      assert :ok = ScopedBooks.subscribe_scoped_books(scope)
     end
   end
 
   describe "broadcast_{:resource}/1-2" do
     test "simple broadcast" do
-      :ok =
-        ScopedBooks.subscribe_scoped_books(
-          scope: %ContextKit.Scope{
-            user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-          }
-        )
+      scope = %ContextKit.Scope{
+        user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+      }
 
-      ScopedBooks.broadcast_scoped_book({:created, 1},
-        scope: %ContextKit.Scope{
-          user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
-        }
-      )
+      :ok = ScopedBooks.subscribe_scoped_books(scope)
+
+      ScopedBooks.broadcast_scoped_book(scope, {:created, 1})
 
       assert_receive {:created, 1}
-    end
-
-    test "requires scope key in opts" do
-      assert_raise(KeyError, "key :scope not found in: []", fn ->
-        ScopedBooks.broadcast_scoped_book({:created, 1}, [])
-      end)
-    end
-
-    test "requires scope value in opts" do
-      assert_raise(RuntimeError, "Access.key!/1 expected a map/struct, got: true", fn ->
-        ScopedBooks.broadcast_scoped_book({:created, 1}, scope: true)
-      end)
     end
   end
 
@@ -96,8 +66,8 @@ defmodule ContextKit.CRUD.WithScopeTest do
         }
       }
 
-      assert [%ScopedBook{id: ^book_id}] = ScopedBooks.list_scoped_books(scope: scope)
-      assert [] = ScopedBooks.list_scoped_books(scope: wrong_scope)
+      assert [%ScopedBook{id: ^book_id}] = ScopedBooks.list_scoped_books(scope)
+      assert [] = ScopedBooks.list_scoped_books(wrong_scope)
     end
 
     test "filters by fields in keyword list" do
@@ -228,9 +198,9 @@ defmodule ContextKit.CRUD.WithScopeTest do
       }
 
       assert %ScopedBook{id: ^scoped_book_id} =
-               ScopedBooks.get_scoped_book(scoped_book_id, scope: scope)
+               ScopedBooks.get_scoped_book(scope, scoped_book_id)
 
-      refute ScopedBooks.get_scoped_book(scoped_book_id, scope: wrong_scope)
+      refute ScopedBooks.get_scoped_book(wrong_scope, scoped_book_id)
     end
 
     test "gets resource by id with options" do
@@ -443,12 +413,11 @@ defmodule ContextKit.CRUD.WithScopeTest do
       user = Repo.insert!(%User{email: "user@test.com"})
       scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
 
-      assert {:ok, %ScopedBook{}} =
-               ScopedBooks.delete_scoped_book(scoped_book,
-                 scope: %Scope{
-                   user: user
-                 }
-               )
+      scope = %Scope{
+        user: user
+      }
+
+      assert {:ok, %ScopedBook{}} = ScopedBooks.delete_scoped_book(scope, scoped_book)
 
       refute ScopedBooks.get_scoped_book(scoped_book.id)
     end
@@ -457,14 +426,14 @@ defmodule ContextKit.CRUD.WithScopeTest do
       user = Repo.insert!(%User{email: "user@test.com"})
       scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
 
+      scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
       assert_raise RuntimeError, "Record not in scope", fn ->
-        ScopedBooks.delete_scoped_book(scoped_book,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
+        ScopedBooks.delete_scoped_book(scope, scoped_book)
       end
     end
 
@@ -538,12 +507,12 @@ defmodule ContextKit.CRUD.WithScopeTest do
         user: user
       }
 
-      changeset = ScopedBooks.change_scoped_book(scoped_book, %{}, scope: scope)
+      changeset = ScopedBooks.change_scoped_book(scope, scoped_book, %{})
       assert %Ecto.Changeset{} = changeset
       assert changeset.data == scoped_book
       assert changeset.valid?
 
-      changeset = ScopedBooks.change_scoped_book(scoped_book, scope: scope)
+      changeset = ScopedBooks.change_scoped_book(scope, scoped_book)
       assert %Ecto.Changeset{} = changeset
       assert changeset.data == scoped_book
       assert changeset.valid?
@@ -560,7 +529,7 @@ defmodule ContextKit.CRUD.WithScopeTest do
       }
 
       assert_raise RuntimeError, "Record not in scope", fn ->
-        ScopedBooks.change_scoped_book(scoped_book, scope: scope)
+        ScopedBooks.change_scoped_book(scope, scoped_book)
       end
     end
 
@@ -603,9 +572,9 @@ defmodule ContextKit.CRUD.WithScopeTest do
         user: user
       }
 
-      ScopedBooks.subscribe_scoped_books(scope: scope)
+      ScopedBooks.subscribe_scoped_books(scope)
 
-      assert {:ok, scoped_book} = ScopedBooks.create_scoped_book(attrs, scope: scope)
+      assert {:ok, scoped_book} = ScopedBooks.create_scoped_book(scope, attrs)
       assert scoped_book.user_id == user.id
 
       assert_received {:created, ^scoped_book}
@@ -633,7 +602,7 @@ defmodule ContextKit.CRUD.WithScopeTest do
       }
 
       attrs = %{title: "New Book"}
-      assert %ScopedBook{} = book = ScopedBooks.create_scoped_book!(attrs, scope: scope)
+      assert %ScopedBook{} = book = ScopedBooks.create_scoped_book!(scope, attrs)
       assert book.title == "New Book"
       assert book.id
       assert book.user_id == user.id
@@ -663,12 +632,11 @@ defmodule ContextKit.CRUD.WithScopeTest do
       scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
       attrs = %{title: "Updated Title"}
 
-      assert {:ok, %ScopedBook{} = updated_scoped_book} =
-               ScopedBooks.update_scoped_book(scoped_book, attrs,
-                 scope: %Scope{
-                   user: user
-                 }
-               )
+      scope = %Scope{
+        user: user
+      }
+
+      assert {:ok, %ScopedBook{} = updated_scoped_book} = ScopedBooks.update_scoped_book(scope, scoped_book, attrs)
 
       assert updated_scoped_book.title == "Updated Title"
       assert updated_scoped_book.id == scoped_book.id
@@ -683,10 +651,9 @@ defmodule ContextKit.CRUD.WithScopeTest do
         user: user
       }
 
-      ScopedBooks.subscribe_scoped_books(scope: scope)
+      ScopedBooks.subscribe_scoped_books(scope)
 
-      assert {:ok, %ScopedBook{} = updated_scoped_book} =
-               ScopedBooks.update_scoped_book(scoped_book, attrs, scope: scope)
+      assert {:ok, %ScopedBook{} = updated_scoped_book} = ScopedBooks.update_scoped_book(scope, scoped_book, attrs)
 
       assert_received {:updated, ^updated_scoped_book}
     end
@@ -696,14 +663,14 @@ defmodule ContextKit.CRUD.WithScopeTest do
       scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
       attrs = %{title: "Updated Title"}
 
+      scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
       assert_raise RuntimeError, "Record not in scope", fn ->
-        ScopedBooks.update_scoped_book(scoped_book, attrs,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
+        ScopedBooks.update_scoped_book(scope, scoped_book, attrs)
       end
     end
 
@@ -732,14 +699,14 @@ defmodule ContextKit.CRUD.WithScopeTest do
       scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
       attrs = %{title: "Updated Title"}
 
+      scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
       assert_raise RuntimeError, "Record not in scope", fn ->
-        ScopedBooks.update_scoped_book!(scoped_book, attrs,
-          scope: %Scope{
-            user: %User{
-              id: user.id + 1
-            }
-          }
-        )
+        ScopedBooks.update_scoped_book!(scope, scoped_book, attrs)
       end
     end
 
@@ -752,11 +719,11 @@ defmodule ContextKit.CRUD.WithScopeTest do
         user: user
       }
 
-      ScopedBooks.subscribe_scoped_books(scope: scope)
+      ScopedBooks.subscribe_scoped_books(scope)
 
       assert %ScopedBook{} =
                updated_scoped_book =
-               ScopedBooks.update_scoped_book!(scoped_book, attrs, scope: scope)
+               ScopedBooks.update_scoped_book!(scope, scoped_book, attrs)
 
       assert_received {:updated, ^updated_scoped_book}
     end
