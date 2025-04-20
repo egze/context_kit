@@ -141,6 +141,10 @@ defmodule ContextKit.ScopedBooks do
   def apply_query_option({:author, author}, query) do
     where(query, [book: book], book.author_id == ^author.id)
   end
+
+  def apply_query_option({:scope, scope}, query) do
+    where(query, [scoped_book: scoped_book], scoped_book.user_id == ^scope.user.id)
+  end
 end
 
 defmodule ContextKit.Authors do

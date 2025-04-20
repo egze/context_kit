@@ -140,6 +140,26 @@ defmodule ContextKit.CRUD do
 
   Each generated function can be overridden in your context module if you need custom behavior.
 
+  ## Queries Module
+
+  The required `:queries` module should implement `apply_query_option/2`, which receives a query option and the current query and returns a modified query. This allows for custom filtering, sorting, and other query modifications.
+
+  ```elixir
+  defmodule MyApp.Accounts.UserQueries do
+    import Ecto.Query
+
+    def apply_query_option({:with_role, role}, query) do
+      where(query, [u], u.role == ^role)
+    end
+
+    def apply_query_option({:search, term}, query) do
+      where(query, [u], ilike(u.name, ^"%\#{term}%") or ilike(u.email, ^"%\#{term}%"))
+    end
+
+    def apply_query_option(_, query), do: query
+  end
+  ```
+
   ## Scope
 
   [Read more about scopes](https://hexdocs.pm/phoenix/1.8.0-rc.0/scopes.html).
@@ -288,7 +308,6 @@ defmodule ContextKit.CRUD do
       if :list not in unquote(except) do
         @doc """
         Returns the list of `%#{unquote(schema_name)}{}`.
-        Options can be passed as a keyword list or map.
 
         ## Examples
 
@@ -303,7 +322,19 @@ defmodule ContextKit.CRUD do
           unquote(:"list_#{plural_resource_name}")(%{})
         end
 
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) :: [
+        @doc """
+        Returns the list of `%#{unquote(schema_name)}{}`.
+        Options can be passed as a keyword list.
+
+        ## Examples
+
+            iex> list_#{unquote(plural_resource_name)}()
+            [%#{unquote(schema_name)}{}, ...]
+
+            iex> list_#{unquote(plural_resource_name)}(field: "value")
+            [%#{unquote(schema_name)}{}, ...]
+        """
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t()) :: [
                 unquote(schema).t()
               ]
         def unquote(:"list_#{plural_resource_name}")(opts) when is_list(opts) or is_non_struct_map(opts) do
@@ -323,6 +354,18 @@ defmodule ContextKit.CRUD do
           end
         end
 
+        @doc """
+        Returns the list of `%#{unquote(schema_name)}{}`.
+        Options can be passed as `%Ecto.Query{}`.
+
+        ## Examples
+
+            iex> list_#{unquote(plural_resource_name)}()
+            [%#{unquote(schema_name)}{}, ...]
+
+            iex> list_#{unquote(plural_resource_name)}(field: "value")
+            [%#{unquote(schema_name)}{}, ...]
+        """
         @spec unquote(:"list_#{plural_resource_name}")(opts :: Ecto.Query.t()) :: [
                 unquote(schema).t()
               ]
@@ -331,6 +374,18 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Returns the scoped list of `%#{unquote(schema_name)}{}`.
+          Options can be passed as a keyword list.
+
+          ## Examples
+
+              iex> list_#{unquote(plural_resource_name)}()
+              [%#{unquote(schema_name)}{}, ...]
+
+              iex> list_#{unquote(plural_resource_name)}(field: "value")
+              [%#{unquote(schema_name)}{}, ...]
+          """
           def unquote(:"list_#{plural_resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
             opts = Keyword.put(opts, :scope, scope)
 
@@ -353,7 +408,6 @@ defmodule ContextKit.CRUD do
       if :get not in unquote(except) do
         @doc """
         Returns a `%#{unquote(schema_name)}{}` by id.
-        Can be optionally filtered by `opts`.
 
         Returns `nil` if no result was found.
 
@@ -371,13 +425,26 @@ defmodule ContextKit.CRUD do
           unquote(:"get_#{resource_name}")(id, [])
         end
 
+        @doc """
+        Returns a `%#{unquote(schema_name)}{}` by id.
+        Can be optionally filtered by `opts`.
+
+        Returns `nil` if no result was found.
+
+        ## Examples
+
+            iex> get_#{unquote(resource_name)}(id)
+            %#{unquote(schema_name)}{}
+
+            iex> get_#{unquote(resource_name)}(1, field: "test")
+            nil
+        """
         @spec unquote(:"get_#{resource_name}")(
                 id :: integer() | String.t(),
-                Keyword.t() | map() | Ecto.Query.t()
+                Keyword.t() | Ecto.Query.t()
               ) ::
                 unquote(schema).t() | nil
-        def unquote(:"get_#{resource_name}")(id, opts)
-            when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
+        def unquote(:"get_#{resource_name}")(id, opts) when is_list(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -390,6 +457,20 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Returns a scoped `%#{unquote(schema_name)}{}` by id.
+          Can be optionally filtered by `opts`.
+
+          Returns `nil` if no result was found.
+
+          ## Examples
+
+              iex> get_#{unquote(resource_name)}(id)
+              %#{unquote(schema_name)}{}
+
+              iex> get_#{unquote(resource_name)}(1, field: "test")
+              nil
+          """
           @spec unquote(:"get_#{resource_name}")(
                   scope :: unquote(scope_module).t(),
                   id :: integer() | String.t(),
@@ -416,6 +497,25 @@ defmodule ContextKit.CRUD do
 
         @doc """
         Returns a `%#{unquote(schema_name)}{}` by id.
+
+        Raises `Ecto.NoResultsError` if no result was found.
+
+        ## Examples
+
+            iex> get_#{unquote(resource_name)}!(id)
+            %#{unquote(schema_name)}{}
+
+            iex> get_#{unquote(resource_name)}!(1, field: "test")
+            Ecto.NoResultsError
+        """
+        @spec unquote(:"get_#{resource_name}!")(id :: integer() | String.t()) ::
+                unquote(schema).t() | nil
+        def unquote(:"get_#{resource_name}!")(id) do
+          unquote(:"get_#{resource_name}!")(id, [])
+        end
+
+        @doc """
+        Returns a `%#{unquote(schema_name)}{}` by id.
         Can be optionally filtered by `opts`.
 
         Raises `Ecto.NoResultsError` if no result was found.
@@ -427,21 +527,13 @@ defmodule ContextKit.CRUD do
 
             iex> get_#{unquote(resource_name)}!(1, field: "test")
             Ecto.NoResultsError
-
         """
-        @spec unquote(:"get_#{resource_name}!")(id :: integer() | String.t()) ::
-                unquote(schema).t() | nil
-        def unquote(:"get_#{resource_name}!")(id) do
-          unquote(:"get_#{resource_name}!")(id, %{})
-        end
-
         @spec unquote(:"get_#{resource_name}!")(
                 id :: integer() | String.t(),
-                opts :: Keyword.t() | map() | Ecto.Query.t()
+                opts :: Keyword.t() | Ecto.Query.t()
               ) ::
                 unquote(schema).t() | nil
-        def unquote(:"get_#{resource_name}!")(id, opts)
-            when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
+        def unquote(:"get_#{resource_name}!")(id, opts) when is_list(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -508,6 +600,19 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Fetches a single scoped `%#{unquote(schema_name)}{}` from the `opts` query via `Repo.one/2`.
+
+          Returns nil if no result was found. Raises if more than one entry.
+
+          ## Examples
+
+              iex> one_#{unquote(resource_name)}(opts)
+              %#{unquote(schema_name)}{}
+
+              iex> one_#{unquote(resource_name)}(opts)
+              nil
+          """
           @spec unquote(:"one_#{resource_name}")(
                   scope :: unquote(scope_module).t(),
                   opts :: Keyword.t()
@@ -557,6 +662,19 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Fetches a single scoped `%#{unquote(schema_name)}{}` from the `opts` query via `Repo.one!/2`.
+
+          Raises `Ecto.NoResultsError` if no record was found. Raises if more than one entry.
+
+          ## Examples
+
+              iex> one_#{unquote(resource_name)}!(opts)
+              %#{unquote(schema_name)}{}
+
+              iex> one_#{unquote(resource_name)}!(opts)
+              nil
+          """
           @spec unquote(:"one_#{resource_name}!")(
                   scope :: unquote(scope_module).t(),
                   opts :: Keyword.t()
@@ -630,7 +748,8 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Deletes a single `%#{unquote(schema_name)}{}` with a scope.
+          Deletes a single `%#{unquote(schema_name)}{}` with a scope
+          and broadcasts the message `{:deleted, #{unquote(resource_name)}}`.
 
           Returns `{:ok, %#{unquote(schema_name)}{}}` if successful or `{:error, changeset}` if the resource could not be deleted.
 
@@ -673,11 +792,11 @@ defmodule ContextKit.CRUD do
 
       if :change not in unquote(except) do
         @doc """
-        Returns a `%Ecto.Changeset{}` for `%#{unquote(schema_name)}{}` by calling `#{unquote(schema_name)}.changeset/2`.
+        Returns a changeset for the specified resource with the given parameters.
 
         ## Examples
 
-            iex> change_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            iex> change_#{unquote(resource_name)}(#{unquote(resource_name)})
             {:ok, %Ecto.Changeset{}}
         """
         @spec unquote(:"change_#{resource_name}")(resource :: unquote(schema).t()) :: Ecto.Changeset.t()
@@ -686,6 +805,8 @@ defmodule ContextKit.CRUD do
         end
 
         @doc """
+        Returns a changeset for the specified resource with the given parameters.
+
         ## Examples
 
             iex> change_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
@@ -700,6 +821,14 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Returns a changeset for the specified resource with the given parameters.
+
+          ## Examples
+
+              iex> change_#{unquote(resource_name)}(scope, #{unquote(resource_name)}, params)
+              %Ecto.Changeset{}
+          """
           @spec unquote(:"change_#{resource_name}")(
                   scope :: unquote(scope_module).t(),
                   resource :: unquote(schema).t(),
@@ -754,6 +883,18 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Creates a new `%#{unquote(schema_name)}{}` with provided attributes
+          and broadcasts the message `{:created, #{unquote(resource_name)}}`.
+
+          ## Examples
+
+              iex> create_#{unquote(resource_name)}(params)
+              {:ok, %#{unquote(schema_name)}{}}
+
+              iex> create_#{unquote(resource_name)}(invalid_params)
+              {:ok, %Ecto.Changeset{}}
+          """
           @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
           def unquote(:"create_#{resource_name}")(%unquote(scope_module){} = scope, params) when is_map(params) do
@@ -797,6 +938,20 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Creates a new `%#{unquote(schema_name)}{}` with provided attributes
+          and broadcasts the message `{:created, #{unquote(resource_name)}}`.
+
+          Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
+
+          ## Examples
+
+              iex> create_#{unquote(resource_name)}!(params)
+              %#{unquote(schema_name)}{}
+
+              iex> create_#{unquote(resource_name)}!(invalid_params)
+              Ecto.StaleEntryError
+          """
           @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
                   {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
           def unquote(:"create_#{resource_name}!")(%unquote(scope_module){} = scope, params) when is_map(params) do
@@ -845,7 +1000,8 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Updates the `%#{unquote(schema_name)}{}` with provided scope and attributes.
+          Updates the `%#{unquote(schema_name)}{}` with provided scope and attributes
+          and broadcasts the message `{:updated, #{unquote(resource_name)}}`..
 
           ## Examples
 
@@ -916,7 +1072,8 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Updates the `%#{unquote(schema_name)}{}` with provided scope and attributes.
+          Updates the `%#{unquote(schema_name)}{}` with provided scope and attributes
+          and broadcasts the message `{:updated, #{unquote(resource_name)}}`..
 
           Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
 
@@ -971,6 +1128,10 @@ defmodule ContextKit.CRUD do
 
           where(query, [record], field(record, ^schema_access_key) == ^scope_value)
         end
+
+        defoverridable [
+          {:apply_query_option, 2}
+        ]
       end
     end
   end
