@@ -380,10 +380,10 @@ defmodule ContextKit.CRUD do
 
           ## Examples
 
-              iex> list_#{unquote(plural_resource_name)}()
+              iex> list_#{unquote(plural_resource_name)}(socket.assigns.current_scope)
               [%#{unquote(schema_name)}{}, ...]
 
-              iex> list_#{unquote(plural_resource_name)}(field: "value")
+              iex> list_#{unquote(plural_resource_name)}(socket.assigns.current_scope, field: "value")
               [%#{unquote(schema_name)}{}, ...]
           """
           def unquote(:"list_#{plural_resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
@@ -465,10 +465,10 @@ defmodule ContextKit.CRUD do
 
           ## Examples
 
-              iex> get_#{unquote(resource_name)}(id)
+              iex> get_#{unquote(resource_name)}(socket.assigns.current_scope, id)
               %#{unquote(schema_name)}{}
 
-              iex> get_#{unquote(resource_name)}(1, field: "test")
+              iex> get_#{unquote(resource_name)}(socket.assigns.current_scope, 1, field: "test")
               nil
           """
           @spec unquote(:"get_#{resource_name}")(
@@ -546,6 +546,20 @@ defmodule ContextKit.CRUD do
         end
 
         if unquote(scope) do
+          @doc """
+          Returns a scoped `%#{unquote(schema_name)}{}` by id.
+          Can be optionally filtered by `opts`.
+
+          Raises `Ecto.NoResultsError` if no result was found.
+
+          ## Examples
+
+              iex> get_#{unquote(resource_name)}!(socket.assigns.current_scope, id)
+              %#{unquote(schema_name)}{}
+
+              iex> get_#{unquote(resource_name)}!(socket.assigns.current_scope, 1, field: "test")
+              Ecto.NoResultsError
+          """
           @spec unquote(:"get_#{resource_name}!")(
                   scope :: unquote(scope_module).t(),
                   id :: integer() | String.t(),
@@ -607,10 +621,10 @@ defmodule ContextKit.CRUD do
 
           ## Examples
 
-              iex> one_#{unquote(resource_name)}(opts)
+              iex> one_#{unquote(resource_name)}(socket.assigns.current_scope, opts)
               %#{unquote(schema_name)}{}
 
-              iex> one_#{unquote(resource_name)}(opts)
+              iex> one_#{unquote(resource_name)}(socket.assigns.current_scope, opts)
               nil
           """
           @spec unquote(:"one_#{resource_name}")(
@@ -669,10 +683,10 @@ defmodule ContextKit.CRUD do
 
           ## Examples
 
-              iex> one_#{unquote(resource_name)}!(opts)
+              iex> one_#{unquote(resource_name)}!(socket.assigns.current_scope, opts)
               %#{unquote(schema_name)}{}
 
-              iex> one_#{unquote(resource_name)}!(opts)
+              iex> one_#{unquote(resource_name)}!(socket.assigns.current_scope, opts)
               nil
           """
           @spec unquote(:"one_#{resource_name}!")(
@@ -822,11 +836,11 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Returns a changeset for the specified resource with the given parameters.
+          Returns a scoped changeset for the specified resource with the given parameters.
 
           ## Examples
 
-              iex> change_#{unquote(resource_name)}(scope, #{unquote(resource_name)}, params)
+              iex> change_#{unquote(resource_name)}(socket.assigns.current_scope, #{unquote(resource_name)}, params)
               %Ecto.Changeset{}
           """
           @spec unquote(:"change_#{resource_name}")(
@@ -884,15 +898,15 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Creates a new `%#{unquote(schema_name)}{}` with provided attributes
+          Creates a new scoped `%#{unquote(schema_name)}{}` with provided attributes
           and broadcasts the message `{:created, #{unquote(resource_name)}}`.
 
           ## Examples
 
-              iex> create_#{unquote(resource_name)}(params)
+              iex> create_#{unquote(resource_name)}(socket.assigns.current_scope, params)
               {:ok, %#{unquote(schema_name)}{}}
 
-              iex> create_#{unquote(resource_name)}(invalid_params)
+              iex> create_#{unquote(resource_name)}(socket.assigns.current_scope, invalid_params)
               {:ok, %Ecto.Changeset{}}
           """
           @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
@@ -939,17 +953,17 @@ defmodule ContextKit.CRUD do
 
         if unquote(scope) do
           @doc """
-          Creates a new `%#{unquote(schema_name)}{}` with provided attributes
+          Creates a new scoped `%#{unquote(schema_name)}{}` with provided attributes
           and broadcasts the message `{:created, #{unquote(resource_name)}}`.
 
           Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
 
           ## Examples
 
-              iex> create_#{unquote(resource_name)}!(params)
+              iex> create_#{unquote(resource_name)}!(socket.assigns.current_scope, params)
               %#{unquote(schema_name)}{}
 
-              iex> create_#{unquote(resource_name)}!(invalid_params)
+              iex> create_#{unquote(resource_name)}!(socket.assigns.current_scope, invalid_params)
               Ecto.StaleEntryError
           """
           @spec unquote(:"create_#{resource_name}")(scope :: unquote(scope_module).t(), params :: map()) ::
@@ -1047,16 +1061,16 @@ defmodule ContextKit.CRUD do
         end
 
         @doc """
-        Updates the `%#{unquote(schema_name)}{}` with provided scope and attributes.
+        Updates the `%#{unquote(schema_name)}{}` with provided attributes.
 
         Returns the `%#{unquote(schema_name)}{}` if successful, or raises an error if not.
 
         ## Examples
 
-            iex> update_#{unquote(resource_name)}!(socket.assigns.current_scope, #{unquote(resource_name)}, params)
+            iex> update_#{unquote(resource_name)}!(#{unquote(resource_name)}, params)
             %#{unquote(schema_name)}{}
 
-            iex> update_#{unquote(resource_name)}!(socket.assigns.current_scope, #{unquote(resource_name)}, invalid_params)
+            iex> update_#{unquote(resource_name)}!(#{unquote(resource_name)}, invalid_params)
             Ecto.StaleEntryError
         """
         @spec unquote(:"update_#{resource_name}!")(
@@ -1121,6 +1135,9 @@ defmodule ContextKit.CRUD do
       end
 
       if unquote(scope) do
+        @doc """
+        Applies the scope to the query.
+        """
         def apply_query_option({:scope, %unquote(scope_module){} = scope}, query) do
           access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
           scope_value = get_in(scope, access)
