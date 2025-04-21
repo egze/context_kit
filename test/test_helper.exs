@@ -56,11 +56,36 @@ defmodule ContextKit.Author do
     timestamps()
 
     has_many :books, ContextKit.Book
+  end
+
+  def changeset(schema, params) do
+    cast(schema, params, [:name])
+  end
+end
+
+defmodule ContextKit.ScopedAuthor do
+  @moduledoc false
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  schema "scoped_authors" do
+    field :name, :string
+
+    timestamps()
+
+    belongs_to :user, ContextKit.User
     has_many :scoped_books, ContextKit.ScopedBook
   end
 
   def changeset(schema, params) do
     cast(schema, params, [:name])
+  end
+
+  def changeset(schema, params, user_scope) do
+    schema
+    |> cast(params, [:name])
+    |> put_change(:user_id, user_scope.user.id)
   end
 end
 
@@ -96,7 +121,7 @@ defmodule ContextKit.ScopedBook do
 
     timestamps()
 
-    belongs_to :author, ContextKit.Author
+    belongs_to :scoped_author, ContextKit.ScopedAuthor
     belongs_to :user, ContextKit.User
   end
 
@@ -127,7 +152,7 @@ end
 
 defmodule ContextKit.ScopedBooks do
   @moduledoc false
-  use ContextKit.CRUD,
+  use ContextKit.CRUD.Scoped,
     schema: ContextKit.ScopedBook,
     repo: ContextKit.Test.Repo,
     queries: __MODULE__,
@@ -156,6 +181,24 @@ defmodule ContextKit.Authors do
 
   def apply_query_option({:scope, scope}, query) do
     where(query, [author: author], author.user_id == ^scope.user.id)
+  end
+end
+
+defmodule ContextKit.ScopedAuthors do
+  @moduledoc false
+  use ContextKit.CRUD.Scoped,
+    schema: ContextKit.ScopedAuthor,
+    repo: ContextKit.Test.Repo,
+    queries: __MODULE__,
+    pubsub: ContextKit.PubSub,
+    scope: [
+      schema_key: :user_id,
+      module: ContextKit.Scope,
+      access_path: [:user, :id]
+    ]
+
+  def apply_query_option({:scope, scope}, query) do
+    where(query, [scoped_author: scoped_author], scoped_author.user_id == ^scope.user.id)
   end
 end
 
