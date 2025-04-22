@@ -1073,15 +1073,18 @@ defmodule ContextKit.CRUD.Scoped do
 
       ## Examples
 
-          iex> validate_scope(socket.assigns.current_scope, comment)
+          iex> validate_#{unquote(resource_name)}_scope!(socket.assigns.current_scope, comment)
           :ok
 
       ## Raises
 
         * `RuntimeError` with message "Record not in scope" if the resource does not belong to the scope
       """
-      @spec validate_scope!(scope :: unquote(scope_module).t(), resource :: unquote(schema).t()) :: :ok
-      def validate_scope!(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
+      @spec unquote(:"validate_#{resource_name}_scope!")(
+              scope :: unquote(scope_module).t(),
+              resource :: unquote(schema).t()
+            ) :: :ok
+      def unquote(:"validate_#{resource_name}_scope!")(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
         access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
         scope_value = get_in(scope, access)
         schema_access_key = Access.key!(unquote(scope_schema_key))
