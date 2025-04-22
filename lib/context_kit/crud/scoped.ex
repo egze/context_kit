@@ -57,6 +57,14 @@ defmodule ContextKit.CRUD.Scoped do
     * `one_comment!/1` - Like `one_comment/1` but raises if not found
     * `one_comment!/2` - Like `one_comment/2` but raises if not found (with scope)
 
+  ### Save Operations
+    * `save_comment/1` - Saves (inserts or updates) a comment
+    * `save_comment/2` - Saves a comment with the provided attributes
+    * `save_comment/3` - Saves a scoped comment with attributes if `:scope` is configured
+    * `save_comment!/1` - Like `save_comment/1` but raises on invalid attributes
+    * `save_comment!/2` - Like `save_comment/2` but raises on invalid attributes
+    * `save_comment!/3` - Like `save_comment/3` but raises on invalid attributes (with scope)
+
   ### Create Operations
     * `create_comment/1` - Creates a new comment with provided attributes
     * `create_comment/2` - Creates a scoped comment if `:scope` is configured
@@ -109,6 +117,18 @@ defmodule ContextKit.CRUD.Scoped do
 
   # Get comment by ID that belongs to current user
   MyApp.Blog.get_comment(socket.assigns.current_scope, 123)
+
+  # Save a new comment (will be inserted)
+  MyApp.Blog.save_comment(%Comment{}, %{body: "Great post!", user_id: 42})
+
+  # Save an existing comment (will be updated)
+  MyApp.Blog.save_comment(existing_comment, %{body: "Updated content"})
+
+  # Save a comment with scope (will insert or update depending on the record's state)
+  MyApp.Blog.save_comment(socket.assigns.current_scope, comment, %{body: "Content"})
+
+  # Save a comment or raise on errors
+  MyApp.Blog.save_comment!(comment, %{body: "Content that must be saved"})
 
   # Create a new comment (manually specifying user_id)
   MyApp.Blog.create_comment(%{body: "Great post!", user_id: 42})
@@ -824,6 +844,182 @@ defmodule ContextKit.CRUD.Scoped do
         defoverridable [
           {unquote(:"change_#{resource_name}"), 2},
           {unquote(:"change_#{resource_name}"), 3}
+        ]
+      end
+
+      if :save not in unquote(except) do
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}`. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(#{unquote(resource_name)})
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(#{unquote(resource_name)})
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(resource :: unquote(schema).t()) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(schema){} = resource) do
+          unquote(:"save_#{resource_name}")(resource, %{})
+        end
+
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(resource :: unquote(schema).t(), params :: map()) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(schema){} = resource, params) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update()
+        end
+
+        @doc """
+        Saves a scoped `%#{unquote(schema_name)}{}`. Resource can be either new or persisted.
+        Broadcasts the message `{:created, #{unquote(resource_name)}}` or `{:updated, #{unquote(resource_name)}}`.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(socket.assigns.current_scope, #{unquote(resource_name)})
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(socket.assigns.current_scope, #{unquote(resource_name)})
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(
+                scope :: unquote(scope_module).t(),
+                resource :: unquote(schema).t()
+              ) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
+          unquote(:"save_#{resource_name}")(scope, resource, %{})
+        end
+
+        @doc """
+        Saves a scoped `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+        Broadcasts the message `{:created, #{unquote(resource_name)}}` or `{:updated, #{unquote(resource_name)}}`.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(socket.assigns.current_scope, #{unquote(resource_name)}, params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(socket.assigns.current_scope, #{unquote(resource_name)}, invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(
+                scope :: unquote(scope_module).t(),
+                resource :: unquote(schema).t(),
+                params :: map()
+              ) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(scope_module){} = scope, %unquote(schema){} = resource, params) do
+          loaded? = Ecto.get_meta(resource, :state) == :loaded
+          if loaded?, do: unquote(:"validate_#{resource_name}_scope!")(scope, resource)
+
+          changeset = unquote(schema).changeset(resource, params, scope)
+
+          with {:ok, resource} <- unquote(repo).insert_or_update(changeset) do
+            if loaded?,
+              do: unquote(:"broadcast_#{resource_name}")(scope, {:updated, resource}),
+              else: unquote(:"broadcast_#{resource_name}")(scope, {:created, resource})
+
+            {:ok, resource}
+          end
+        end
+
+        defoverridable [
+          {unquote(:"save_#{resource_name}"), 2},
+          {unquote(:"save_#{resource_name}"), 3}
+        ]
+
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}`. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(#{unquote(resource_name)})
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(resource :: unquote(schema).t()) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(schema){} = resource) do
+          unquote(:"save_#{resource_name}!")(resource, %{})
+        end
+
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(#{unquote(resource_name)}, params)
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(resource :: unquote(schema).t(), params :: map()) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(schema){} = resource, params) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update!()
+        end
+
+        @doc """
+        Saves a scoped `%#{unquote(schema_name)}{}`. Resource can be either new or persisted.
+        Broadcasts the message `{:created, #{unquote(resource_name)}}` or `{:updated, #{unquote(resource_name)}}`.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(socket.assigns.current_scope, #{unquote(resource_name)})
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(
+                scope :: unquote(scope_module).t(),
+                resource :: unquote(schema).t()
+              ) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
+          unquote(:"save_#{resource_name}!")(scope, resource, %{})
+        end
+
+        @doc """
+        Saves a scoped `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+        Broadcasts the message `{:created, #{unquote(resource_name)}}` or `{:updated, #{unquote(resource_name)}}`.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(socket.assigns.current_scope, #{unquote(resource_name)}, params)
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(
+                scope :: unquote(scope_module).t(),
+                resource :: unquote(schema).t(),
+                params :: map()
+              ) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(scope_module){} = scope, %unquote(schema){} = resource, params) do
+          loaded? = Ecto.get_meta(resource, :state) == :loaded
+          if loaded?, do: unquote(:"validate_#{resource_name}_scope!")(scope, resource)
+
+          changeset = unquote(schema).changeset(resource, params, scope)
+
+          with %unquote(schema){} = resource <- unquote(repo).insert_or_update!(changeset) do
+            if loaded?,
+              do: unquote(:"broadcast_#{resource_name}")(scope, {:updated, resource}),
+              else: unquote(:"broadcast_#{resource_name}")(scope, {:created, resource})
+
+            resource
+          end
+        end
+
+        defoverridable [
+          {unquote(:"save_#{resource_name}!"), 2},
+          {unquote(:"save_#{resource_name}!"), 3}
         ]
       end
 

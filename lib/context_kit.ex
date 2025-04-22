@@ -148,6 +148,10 @@ defmodule ContextKit do
   Blog.one_comment(user_id: 1)
   Blog.one_comment!(user_id: 1)  # Raises if not found
 
+  # Save records (insert or update based on record state)
+  Blog.save_comment(comment, %{body: "New or updated content"})
+  Blog.save_comment!(comment, %{body: "New or updated content"})  # Raises on error
+
   # Create records
   Blog.create_comment(%{body: "Great post!", user_id: 1})
   Blog.create_comment!(%{body: "Great post!", user_id: 1})  # Raises on error
@@ -175,6 +179,9 @@ defmodule ContextKit do
 
   # Get comment by ID only if it belongs to the current user
   Blog.get_comment(socket.assigns.current_scope, 123)
+
+  # Save comment (insert or update) with scope
+  Blog.save_comment(socket.assigns.current_scope, comment, %{body: "New or updated content"})
 
   # Create comment for the current user
   Blog.create_comment(socket.assigns.current_scope, %{body: "Great post!"})

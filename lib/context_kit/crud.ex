@@ -48,6 +48,10 @@ defmodule ContextKit.CRUD do
     * `one_comment/1` - Fetches a single comment matching the criteria
     * `one_comment!/1` - Like `one_comment/1` but raises if not found
 
+  ### Save Operations
+    * `save_comment/2` - Saves (inserts or updates) a comment with provided attributes
+    * `save_comment!/2` - Like `save_comment/2` but raises on invalid attributes
+
   ### Create Operations
     * `create_comment/1` - Creates a new comment with provided attributes
     * `create_comment!/1` - Like `create_comment/1` but raises on invalid attributes
@@ -82,6 +86,9 @@ defmodule ContextKit.CRUD do
 
   # Get comment by ID with preloads
   MyApp.Blog.get_comment(123, preload: [:user])
+
+  # Save a comment (insert if new, update if existing)
+  MyApp.Blog.save_comment(comment, %{body: "New or updated content"})
 
   # Create a new comment
   MyApp.Blog.create_comment(%{body: "Great post!", user_id: 1})
@@ -405,6 +412,42 @@ defmodule ContextKit.CRUD do
         end
 
         defoverridable [{unquote(:"change_#{resource_name}"), 2}]
+      end
+
+      if :save not in unquote(except) do
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(resource :: unquote(schema).t(), params :: map()) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(schema){} = resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update()
+        end
+
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(#{unquote(resource_name)}, params)
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(resource :: unquote(schema).t(), params :: map()) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(schema){} = resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update!()
+        end
       end
 
       if :create not in unquote(except) do

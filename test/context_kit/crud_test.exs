@@ -356,7 +356,39 @@ defmodule ContextKit.CRUDTest do
     end
   end
 
-  describe "create_{:resource}/1" do
+  describe "save_{:resource}/2" do
+    test "saves a new resource with valid attributes" do
+      book = %Book{title: "My Title"}
+      assert {:ok, book} = Books.save_book(book, %{})
+      assert book.title == "My Title"
+      assert book.id
+    end
+
+    test "saves an existing resource with valid attributes" do
+      {:ok, book} = Repo.insert(%Book{title: "My Book"})
+
+      assert {:ok, book} = Books.save_book(book, %{title: "Updated Title"})
+      assert book.title == "Updated Title"
+    end
+  end
+
+  describe "save_{:resource}!/2" do
+    test "saves a new resource with valid attributes" do
+      book = %Book{title: "My Title"}
+      book = Books.save_book!(book, %{})
+      assert book.title == "My Title"
+      assert book.id
+    end
+
+    test "saves an existing resource with valid attributes" do
+      {:ok, book} = Repo.insert(%Book{title: "My Book"})
+
+      assert book = Books.save_book!(book, %{title: "Updated Title"})
+      assert book.title == "Updated Title"
+    end
+  end
+
+  describe "create_{:resource}/1-2" do
     test "creates resource with valid attributes" do
       attrs = %{title: "New Book"}
       assert {:ok, %Book{} = book} = Books.create_book(attrs)

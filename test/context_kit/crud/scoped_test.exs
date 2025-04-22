@@ -555,6 +555,134 @@ defmodule ContextKit.CRUD.ScopedTest do
     end
   end
 
+  describe "save_{:resource}/2-3" do
+    test "saves a new resource with valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = %ScopedBook{title: "My Book", user_id: user.id}
+
+      assert {:ok, scoped_book} = ScopedBooks.save_scoped_book(scoped_book, %{})
+      assert scoped_book.title == "My Book"
+      assert scoped_book.user_id == user.id
+      assert scoped_book.id
+    end
+
+    test "saves a new resource with scope and valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      new_scoped_book = %ScopedBook{title: "My Book"}
+
+      scope = %Scope{
+        user: user
+      }
+
+      ScopedBooks.subscribe_scoped_books(scope)
+
+      assert {:ok, scoped_book} = ScopedBooks.save_scoped_book(scope, new_scoped_book, %{})
+      assert scoped_book.title == "My Book"
+      assert scoped_book.user_id == user.id
+      assert scoped_book.id
+
+      assert_received {:created, ^scoped_book}
+    end
+
+    test "saves an existing resource with valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
+
+      assert {:ok, scoped_book} = ScopedBooks.save_scoped_book(scoped_book, %{title: "Updated Title"})
+      assert scoped_book.title == "Updated Title"
+    end
+
+    test "saves an existing resource with scope and valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
+
+      scope = %Scope{
+        user: user
+      }
+
+      other_scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
+      ScopedBooks.subscribe_scoped_books(scope)
+
+      assert {:ok, scoped_book} = ScopedBooks.save_scoped_book(scope, scoped_book, %{title: "Updated Title"})
+      assert scoped_book.title == "Updated Title"
+
+      assert_received {:updated, ^scoped_book}
+
+      assert_raise RuntimeError, "Record not in scope", fn ->
+        ScopedBooks.save_scoped_book(other_scope, scoped_book, %{title: "Updated Title"})
+      end
+    end
+  end
+
+  describe "save_{:resource}!/2-3" do
+    test "saves a new resource with valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = %ScopedBook{title: "My Book", user_id: user.id}
+
+      scoped_book = ScopedBooks.save_scoped_book!(scoped_book, %{})
+      assert scoped_book.title == "My Book"
+      assert scoped_book.user_id == user.id
+      assert scoped_book.id
+    end
+
+    test "saves a new resource with scope and valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      new_scoped_book = %ScopedBook{title: "My Book"}
+
+      scope = %Scope{
+        user: user
+      }
+
+      ScopedBooks.subscribe_scoped_books(scope)
+
+      assert scoped_book = ScopedBooks.save_scoped_book!(scope, new_scoped_book, %{})
+      assert scoped_book.title == "My Book"
+      assert scoped_book.user_id == user.id
+      assert scoped_book.id
+
+      assert_received {:created, ^scoped_book}
+    end
+
+    test "saves an existing resource with valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
+
+      scoped_book = ScopedBooks.save_scoped_book!(scoped_book, %{title: "Updated Title"})
+      assert scoped_book.title == "Updated Title"
+    end
+
+    test "saves an existing resource with scope and valid attributes" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
+
+      scope = %Scope{
+        user: user
+      }
+
+      other_scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
+      ScopedBooks.subscribe_scoped_books(scope)
+
+      scoped_book = ScopedBooks.save_scoped_book!(scope, scoped_book, %{title: "Updated Title"})
+      assert scoped_book.title == "Updated Title"
+
+      assert_received {:updated, ^scoped_book}
+
+      assert_raise RuntimeError, "Record not in scope", fn ->
+        ScopedBooks.save_scoped_book(other_scope, scoped_book, %{title: "Updated Title"})
+      end
+    end
+  end
+
   describe "create_{:resource}/1" do
     test "creates resource with valid attributes without scope" do
       attrs = %{title: "New Book"}
