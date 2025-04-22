@@ -740,4 +740,27 @@ defmodule ContextKit.CRUD.ScopedTest do
       assert Repo.get!(Book, book.id).title == "Original Title"
     end
   end
+
+  describe "validate_scope!/2" do
+    test "validates scope for records" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      scoped_book = Repo.insert!(%ScopedBook{title: "My Book", user_id: user.id})
+
+      scope = %Scope{
+        user: user
+      }
+
+      assert :ok = ScopedBooks.validate_scope!(scope, scoped_book)
+
+      other_scope = %Scope{
+        user: %User{
+          id: user.id + 1
+        }
+      }
+
+      assert_raise RuntimeError, "Record not in scope", fn ->
+        ScopedBooks.validate_scope!(other_scope, scoped_book)
+      end
+    end
+  end
 end

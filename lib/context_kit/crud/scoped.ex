@@ -1010,7 +1010,7 @@ defmodule ContextKit.CRUD.Scoped do
                 resource :: unquote(schema).t(),
                 params :: map()
               ) :: unquote(schema).t()
-        def unquote(:"update_#{resource_name}!")(resource, params) do
+        def unquote(:"update_#{resource_name}!")(%unquote(schema){} = resource, params) do
           resource
           |> unquote(schema).changeset(params)
           |> unquote(repo).update!()
@@ -1035,7 +1035,7 @@ defmodule ContextKit.CRUD.Scoped do
                 resource :: unquote(schema).t(),
                 params :: map()
               ) :: unquote(schema).t()
-        def unquote(:"update_#{resource_name}!")(%unquote(scope_module){} = scope, resource, params) do
+        def unquote(:"update_#{resource_name}!")(%unquote(scope_module){} = scope, %unquote(schema){} = resource, params) do
           changeset = unquote(schema).changeset(resource, params, scope)
 
           access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
@@ -1057,6 +1057,40 @@ defmodule ContextKit.CRUD.Scoped do
           {unquote(:"update_#{resource_name}!"), 2},
           {unquote(:"update_#{resource_name}!"), 3}
         ]
+      end
+
+      @doc """
+      Validates that a resource belongs to the given scope.
+
+      This function checks if the resource is within the scope specified by the scope struct.
+      It compares the resource's scope field value (e.g., `:user_id`) with the scope's value
+      (e.g., the current user's ID).
+
+      ## Parameters
+
+        * `scope` - The scope struct that contains the authorization context
+        * `resource` - The resource struct to validate against the scope
+
+      ## Examples
+
+          iex> validate_scope(socket.assigns.current_scope, comment)
+          :ok
+
+      ## Raises
+
+        * `RuntimeError` with message "Record not in scope" if the resource does not belong to the scope
+      """
+      @spec validate_scope!(scope :: unquote(scope_module).t(), resource :: unquote(schema).t()) :: :ok
+      def validate_scope!(%unquote(scope_module){} = scope, %unquote(schema){} = resource) do
+        access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
+        scope_value = get_in(scope, access)
+        schema_access_key = Access.key!(unquote(scope_schema_key))
+
+        if get_in(resource, [schema_access_key]) != scope_value do
+          raise "Record not in scope"
+        end
+
+        :ok
       end
 
       @doc """
