@@ -1302,10 +1302,6 @@ defmodule ContextKit.CRUD.Scoped do
 
         where(query, [record], field(record, ^schema_access_key) == ^scope_value)
       end
-
-      defoverridable [
-        {:apply_query_option, 2}
-      ]
     end
   end
 end
