@@ -137,6 +137,10 @@ defmodule ContextKit do
   ContextKit automatically generates common CRUD functions:
 
   ```elixir
+  # Get query for use with Repo functions
+  Blog.query_comments()
+  Blog.query_comments(status: "published")
+
   # List records with filtering and pagination
   Blog.list_comments(status: "published", paginate: [page: 1, per_page: 20])
 
@@ -174,6 +178,10 @@ defmodule ContextKit do
   When using `ContextKit.CRUD.Scoped`, all CRUD operations can take a scope parameter:
 
   ```elixir
+  # Get query scoped to current user
+  Blog.query_comments(socket.assigns.current_scope)
+  Blog.query_comments(socket.assigns.current_scope, status: "published")
+
   # List comments for the current user
   Blog.list_comments(socket.assigns.current_scope)
 
@@ -212,6 +220,39 @@ defmodule ContextKit do
   All fields from the schema can be filtered on automatically.
   Any option not recognized as a field filter or standard query option is treated as a custom query option and passed to
   the queries module's `apply_query_option/2` function.
+
+  ### Query Operations
+
+  ContextKit provides query functions that return Ecto queries without executing them,
+  useful for aggregation, composition, or further customization:
+
+  ```elixir
+  # Get a base query for all comments
+  query = Blog.query_comments()
+
+  # Apply filters to a query
+  query = Blog.query_comments(status: "published")
+
+  # Get a scoped query (with ContextKit.CRUD.Scoped)
+  query = Blog.query_comments(socket.assigns.current_scope)
+
+  # Use with Repo functions
+  MyApp.Repo.aggregate(query, :count)
+  MyApp.Repo.all(query)
+
+  # Compose with other queries
+  query
+  |> join(:left, [c], u in assoc(c, :user))
+  |> group_by([c, u], u.id)
+  |> select([c, u], {u.name, count(c.id)})
+  |> MyApp.Repo.all()
+  ```
+
+  Query functions return an `Ecto.Query` which is perfect for:
+  - Computing aggregations (count, sum, etc.)
+  - Creating complex reports with multiple joins
+  - Building sub-queries
+  - Performing custom operations that ContextKit's standard functions don't cover
 
   ### Pagination
 

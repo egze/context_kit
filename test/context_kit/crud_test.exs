@@ -12,6 +12,30 @@ defmodule ContextKit.CRUDTest do
     :ok
   end
 
+  describe "query_{:resource}/0-1" do
+    test "simple query" do
+      assert {:ok, book_1} = Repo.insert(%Book{title: "My Book 1"})
+      assert {:ok, book_2} = Repo.insert(%Book{title: "My Book 2"})
+
+      query = Books.query_books()
+
+      assert Repo.aggregate(query, :count) == 2
+      assert Repo.aggregate(query, :min, :id) == book_1.id
+      assert Repo.aggregate(query, :max, :id) == book_2.id
+    end
+
+    test "works with filters" do
+      assert {:ok, book_1} = Repo.insert(%Book{title: "My Book 1"})
+      assert {:ok, _book_2} = Repo.insert(%Book{title: "My Book 2"})
+
+      query = Books.query_books(title: "My Book 1")
+
+      assert Repo.aggregate(query, :count) == 1
+      assert Repo.aggregate(query, :min, :id) == book_1.id
+      assert Repo.aggregate(query, :max, :id) == book_1.id
+    end
+  end
+
   describe "list_{:resource}/0-1" do
     test "simple list" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})

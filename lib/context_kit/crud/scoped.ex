@@ -38,6 +38,11 @@ defmodule ContextKit.CRUD.Scoped do
 
   For a schema named `Comment`, the following functions are generated:
 
+  ### Query Operations
+    * `query_comments/0` - Returns a base query for all comments
+    * `query_comments/1` - Returns a filtered query based on options (without executing)
+    * `query_comments/2` - Returns a scoped and filtered query if `:scope` is configured
+
   ### List Operations
     * `list_comments/0` - Returns all comments
     * `list_comments/1` - Returns filtered comments based on options
@@ -103,6 +108,18 @@ defmodule ContextKit.CRUD.Scoped do
   ## Examples
 
   ```elixir
+  # Get a query for comments (for use with Repo.aggregate, etc.)
+  query = MyApp.Blog.query_comments(status: :published)
+  MyApp.Repo.aggregate(query, :count)
+
+  # Get a query for comments scoped to current user
+  query = MyApp.Blog.query_comments(socket.assigns.current_scope)
+  MyApp.Repo.aggregate(query, :count)
+
+  # Get a query for comments scoped to current user with additional filters
+  query = MyApp.Blog.query_comments(socket.assigns.current_scope, status: :published)
+  MyApp.Repo.aggregate(query, :count)
+
   # List all comments
   MyApp.Blog.list_comments()
 
@@ -284,7 +301,7 @@ defmodule ContextKit.CRUD.Scoped do
             # that `scope` is based on the `:user`.
         """
         @spec unquote(:"subscribe_#{plural_resource_name}")(scope :: unquote(scope_module).t()) ::
-                :ok | {:error, term()}
+                :ok | {:error, {:already_registered, pid()}}
         def unquote(:"subscribe_#{plural_resource_name}")(%unquote(scope_module){} = scope) do
           access = Enum.map(unquote(scope_access_path), &Access.key!(&1))
           key = get_in(scope, access)
@@ -327,6 +344,80 @@ defmodule ContextKit.CRUD.Scoped do
             message
           )
         end
+      end
+
+      if :query not in unquote(except) do
+        @doc """
+        Returns the query of `%#{unquote(schema_name)}{}`.
+
+        Useful for passing the query into `Repo.aggregate/2`.
+
+        ## Examples
+
+            iex> query_#{unquote(plural_resource_name)}()
+            %Ecto.Query{}
+
+            iex> query_#{unquote(plural_resource_name)}() |> Repo.aggregate(:count)
+            123
+        """
+        @spec unquote(:"query_#{plural_resource_name}")() :: Ecto.Query.t()
+        def unquote(:"query_#{plural_resource_name}")() do
+          unquote(:"query_#{plural_resource_name}")([])
+        end
+
+        @doc """
+        Returns the query of `%#{unquote(schema_name)}{}`.
+        Options can be passed as a keyword list or map.
+
+        Useful for passing the query into `Repo.aggregate/2`.
+
+        ## Examples
+
+            iex> query_#{unquote(plural_resource_name)}(field: 123)
+            %Ecto.Query{}
+
+            iex> query_#{unquote(plural_resource_name)}(field: 123) |> Repo.aggregate(:count)
+            123
+        """
+        @spec unquote(:"query_#{plural_resource_name}")(opts :: Keyword.t()) :: Ecto.Query.t()
+        def unquote(:"query_#{plural_resource_name}")(opts) when is_list(opts) do
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
+        end
+
+        @doc """
+        Returns the scoped query of `%#{unquote(schema_name)}{}`.
+        Options can be passed as a keyword list or map.
+
+        Useful for passing the query into `Repo.aggregate/2`.
+
+        ## Examples
+
+            iex> query_#{unquote(plural_resource_name)}(socket.assigns.current_scope, field: 123)
+            %Ecto.Query{}
+
+            iex> query_#{unquote(plural_resource_name)}(socket.assigns.current_scope, field: 123) |> Repo.aggregate(:count)
+            123
+        """
+        @spec unquote(:"query_#{plural_resource_name}")(unquote(scope_module).t(), opts :: Keyword.t()) :: Ecto.Query.t()
+        def unquote(:"query_#{plural_resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
+          opts = Keyword.put(opts, :scope, scope)
+
+          unquote(:"query_#{plural_resource_name}")(opts)
+        end
+
+        defoverridable [
+          {unquote(:"query_#{plural_resource_name}"), 0},
+          {unquote(:"query_#{plural_resource_name}"), 1},
+          {unquote(:"query_#{plural_resource_name}"), 2}
+        ]
       end
 
       if :list not in unquote(except) do

@@ -42,6 +42,53 @@ defmodule ContextKit.CRUD.ScopedTest do
     end
   end
 
+  describe "query_{:resource}/0-2" do
+    test "simple query" do
+      assert {:ok, scoped_book_1} = Repo.insert(%ScopedBook{title: "My Book"})
+      assert {:ok, scoped_book_2} = Repo.insert(%ScopedBook{title: "My Book"})
+
+      query = ScopedBooks.query_scoped_books()
+
+      assert Repo.aggregate(query, :count) == 2
+      assert Repo.aggregate(query, :min, :id) == scoped_book_1.id
+      assert Repo.aggregate(query, :max, :id) == scoped_book_2.id
+    end
+
+    test "works with filters" do
+      assert {:ok, scoped_book_1} = Repo.insert(%ScopedBook{title: "My Book 1"})
+      assert {:ok, _scoped_book_2} = Repo.insert(%ScopedBook{title: "My Book 2"})
+
+      query = ScopedBooks.query_scoped_books(title: "My Book 1")
+
+      assert Repo.aggregate(query, :count) == 1
+      assert Repo.aggregate(query, :min, :id) == scoped_book_1.id
+      assert Repo.aggregate(query, :max, :id) == scoped_book_1.id
+    end
+
+    test "works with scopes and filters" do
+      user = Repo.insert!(%User{email: "user@test.com"})
+      assert {:ok, scoped_book_1} = Repo.insert(%ScopedBook{title: "My Book 1", user_id: user.id})
+      assert {:ok, scoped_book_2} = Repo.insert(%ScopedBook{title: "My Book 2", user_id: user.id})
+      assert {:ok, _scoped_book_3} = Repo.insert(%ScopedBook{title: "My Book 3"})
+
+      scope = %Scope{
+        user: user
+      }
+
+      query = ScopedBooks.query_scoped_books(scope, title: "My Book 1")
+
+      assert Repo.aggregate(query, :count) == 1
+      assert Repo.aggregate(query, :min, :id) == scoped_book_1.id
+      assert Repo.aggregate(query, :max, :id) == scoped_book_1.id
+
+      query = ScopedBooks.query_scoped_books(scope)
+
+      assert Repo.aggregate(query, :count) == 2
+      assert Repo.aggregate(query, :min, :id) == scoped_book_1.id
+      assert Repo.aggregate(query, :max, :id) == scoped_book_2.id
+    end
+  end
+
   describe "list_{:resource}/0-1" do
     test "simple list" do
       assert {:ok, scoped_book} = Repo.insert(%ScopedBook{title: "My Book"})
