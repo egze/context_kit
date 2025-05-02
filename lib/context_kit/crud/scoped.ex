@@ -432,7 +432,8 @@ defmodule ContextKit.CRUD.Scoped do
             iex> list_#{unquote(plural_resource_name)}(field: "value")
             [%#{unquote(schema_name)}{}, ...]
         """
-        @spec unquote(:"list_#{plural_resource_name}")() :: [unquote(schema).t()]
+        @spec unquote(:"list_#{plural_resource_name}")() ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")() do
           unquote(:"list_#{plural_resource_name}")([])
         end
@@ -449,9 +450,8 @@ defmodule ContextKit.CRUD.Scoped do
             iex> list_#{unquote(plural_resource_name)}(field: "value")
             [%#{unquote(schema_name)}{}, ...]
         """
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) :: [
-                unquote(schema).t()
-              ]
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")(opts) when is_list(opts) or is_non_struct_map(opts) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
@@ -481,9 +481,8 @@ defmodule ContextKit.CRUD.Scoped do
             iex> list_#{unquote(plural_resource_name)}(field: "value")
             [%#{unquote(schema_name)}{}, ...]
         """
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Ecto.Query.t()) :: [
-                unquote(schema).t()
-              ]
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: Ecto.Query.t()) ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")(opts) when is_struct(opts, Ecto.Query) do
           unquote(repo).all(opts)
         end
@@ -500,9 +499,8 @@ defmodule ContextKit.CRUD.Scoped do
             iex> list_#{unquote(plural_resource_name)}(socket.assigns.current_scope, field: "value")
             [%#{unquote(schema_name)}{}, ...]
         """
-        @spec unquote(:"list_#{plural_resource_name}")(unquote(scope_module).t(), opts :: Keyword.t()) :: [
-                unquote(schema).t()
-              ]
+        @spec unquote(:"list_#{plural_resource_name}")(unquote(scope_module).t(), opts :: Keyword.t()) ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")(%unquote(scope_module){} = scope, opts \\ []) do
           opts = Keyword.put(opts, :scope, scope)
 

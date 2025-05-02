@@ -17,6 +17,8 @@ defmodule ContextKit.Paginator do
   @min_page 1
   @min_per_page 1
 
+  @type t() :: %__MODULE__{}
+
   defstruct [
     :total_count,
     :total_pages,
