@@ -80,16 +80,16 @@ This will automatically generate the list, get, create, update, delete, and more
 
 ## Additional Modules Overview
 
-- **[ContextKit.CRUD](crud.ex)**
+- **[ContextKit.CRUD](lib/context_kit/crud.ex)**
   Provides standard CRUD operations and dynamic query building.
 
-- **[ContextKit.CRUD.Scoped](scoped.ex)**
+- **[ContextKit.CRUD.Scoped](lib/context_kit/crud/scoped.ex)**
   Provides standard CRUD operations and dynamic query building with support of Phoenix scopes.
 
-- **[ContextKit.Paginator](paginator.ex)**
+- **[ContextKit.Paginator](lib/context_kit/paginator.ex)**
   Manages pagination including limit/offset calculations and metadata generation.
 
-- **[ContextKit.Query](query.ex)**
+- **[ContextKit.Query](lib/context_kit/query.ex)**
   Enables dynamic query building with extensive filtering options.
 
 ## Usage Examples
