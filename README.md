@@ -82,19 +82,19 @@ This will automatically generate the list, get, create, update, delete, and more
 
 - **ContextKit.CRUD**
   Provides standard CRUD operations and dynamic query building.
-  Source: [context_kit/lib/context_kit/crud.ex](context_kit/lib/context_kit/crud.ex)
+  Source: [crud.ex](https://github.com/egze/context_kit/blob/main/lib/context_kit/crud.ex)
 
 - **ContextKit.CRUD.Scoped**
   Provides standard CRUD operations and dynamic query building with support of Phoenix scopes.
-  Source: [context_kit/lib/context_kit/crud.ex](context_kit/lib/context_kit/crud/scoped.ex)
+  Source: [scoped.ex](https://github.com/egze/context_kit/blob/main/lib/context_kit/crud/scoped.ex)
 
 - **ContextKit.Paginator**
   Manages pagination including limit/offset calculations and metadata generation.
-  Source: [context_kit/lib/context_kit/paginator.ex](context_kit/lib/context_kit/paginator.ex)
+  Source: [paginator.ex](https://github.com/egze/context_kit/blob/main/lib/context_kit/paginator.ex)
 
 - **ContextKit.Query**
   Enables dynamic query building with extensive filtering options.
-  Source: [context_kit/lib/context_kit/query.ex](context_kit/lib/context_kit/query.ex)
+  Source: [query.ex](https://github.com/egze/context_kit/blob/main/lib/context_kit/query.ex)
 
 ## Usage Examples
 
