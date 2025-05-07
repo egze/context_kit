@@ -118,15 +118,8 @@ defmodule ContextKit.Query do
     {query, custom_query_options}
   end
 
-  defp extract_field_filters(
-         base_options,
-         schema_fields,
-         field_filters_acc \\ [],
-         query_options_acc \\ []
-       ) do
-    Enum.reduce(base_options, {field_filters_acc, query_options_acc}, fn option,
-                                                                         {field_filters_acc,
-                                                                          query_options_acc} ->
+  defp extract_field_filters(base_options, schema_fields, field_filters_acc \\ [], query_options_acc \\ []) do
+    Enum.reduce(base_options, {field_filters_acc, query_options_acc}, fn option, {field_filters_acc, query_options_acc} ->
       case option do
         {:filters, filters} ->
           extract_field_filters(filters, schema_fields, field_filters_acc, query_options_acc)
@@ -161,15 +154,13 @@ defmodule ContextKit.Query do
   end
 
   defp apply_field_filters(query, field_filters, binding_name) do
-    field_filters
-    |> Enum.reduce(query, fn field_filter, query_acc ->
+    Enum.reduce(field_filters, query, fn field_filter, query_acc ->
       apply_field_filter(field_filter, query_acc, binding_name)
     end)
   end
 
   defp apply_query_options(query, query_options, binding_name) do
-    query_options
-    |> Enum.reduce(query, fn query_option, query_acc ->
+    Enum.reduce(query_options, query, fn query_option, query_acc ->
       apply_query_option(query_option, query_acc, binding_name)
     end)
   end
@@ -234,13 +225,11 @@ defmodule ContextKit.Query do
     where(query, [{^binding_name, record}], field(record, ^field) > ^value)
   end
 
-  defp apply_field_filter(%{field: field, op: :in, value: value}, query, binding_name)
-       when is_list(value) do
+  defp apply_field_filter(%{field: field, op: :in, value: value}, query, binding_name) when is_list(value) do
     where(query, [{^binding_name, record}], field(record, ^field) in ^value)
   end
 
-  defp apply_field_filter(%{field: field, op: :not_in, value: value}, query, binding_name)
-       when is_list(value) do
+  defp apply_field_filter(%{field: field, op: :not_in, value: value}, query, binding_name) when is_list(value) do
     where(query, [{^binding_name, record}], field(record, ^field) not in ^value)
   end
 

@@ -1,15 +1,39 @@
 defmodule ContextKit.CRUDTest do
   use ExUnit.Case, async: false
 
+  alias ContextKit.Author
   alias ContextKit.Book
   alias ContextKit.Books
-  alias ContextKit.Author
   alias ContextKit.Test.Repo
 
   setup do
     Repo.delete_all(Book)
     Repo.delete_all(Author)
     :ok
+  end
+
+  describe "query_{:resource}/0-1" do
+    test "simple query" do
+      assert {:ok, book_1} = Repo.insert(%Book{title: "My Book 1"})
+      assert {:ok, book_2} = Repo.insert(%Book{title: "My Book 2"})
+
+      query = Books.query_books()
+
+      assert Repo.aggregate(query, :count) == 2
+      assert Repo.aggregate(query, :min, :id) == book_1.id
+      assert Repo.aggregate(query, :max, :id) == book_2.id
+    end
+
+    test "works with filters" do
+      assert {:ok, book_1} = Repo.insert(%Book{title: "My Book 1"})
+      assert {:ok, _book_2} = Repo.insert(%Book{title: "My Book 2"})
+
+      query = Books.query_books(title: "My Book 1")
+
+      assert Repo.aggregate(query, :count) == 1
+      assert Repo.aggregate(query, :min, :id) == book_1.id
+      assert Repo.aggregate(query, :max, :id) == book_1.id
+    end
   end
 
   describe "list_{:resource}/0-1" do
@@ -356,7 +380,39 @@ defmodule ContextKit.CRUDTest do
     end
   end
 
-  describe "create_{:resource}/1" do
+  describe "save_{:resource}/2" do
+    test "saves a new resource with valid attributes" do
+      book = %Book{title: "My Title"}
+      assert {:ok, book} = Books.save_book(book, %{})
+      assert book.title == "My Title"
+      assert book.id
+    end
+
+    test "saves an existing resource with valid attributes" do
+      {:ok, book} = Repo.insert(%Book{title: "My Book"})
+
+      assert {:ok, book} = Books.save_book(book, %{title: "Updated Title"})
+      assert book.title == "Updated Title"
+    end
+  end
+
+  describe "save_{:resource}!/2" do
+    test "saves a new resource with valid attributes" do
+      book = %Book{title: "My Title"}
+      book = Books.save_book!(book, %{})
+      assert book.title == "My Title"
+      assert book.id
+    end
+
+    test "saves an existing resource with valid attributes" do
+      {:ok, book} = Repo.insert(%Book{title: "My Book"})
+
+      assert book = Books.save_book!(book, %{title: "Updated Title"})
+      assert book.title == "Updated Title"
+    end
+  end
+
+  describe "create_{:resource}/1-2" do
     test "creates resource with valid attributes" do
       attrs = %{title: "New Book"}
       assert {:ok, %Book{} = book} = Books.create_book(attrs)

@@ -51,7 +51,9 @@ defmodule ContextKit.MixProject do
       {:ecto, "~> 3.8"},
       {:ecto_sql, "~> 3.12"},
       {:ecto_sqlite3, ">= 0.0.0", only: :test},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:phoenix, ">= 1.7.0"},
+      {:styler, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 end

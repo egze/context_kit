@@ -9,13 +9,13 @@ defmodule ContextKit.CRUD do
   Add the following to your context module:
 
   ```elixir
-  defmodule MyApp.Accounts do
+  defmodule MyApp.Blog do
     use ContextKit.CRUD,
       repo: MyApp.Repo,
-      schema: MyApp.Accounts.User,
-      queries: MyApp.Accounts.UserQueries,
+      schema: MyApp.Blog.Comment,
+      queries: MyApp.Blog.CommentQueries,
       except: [:delete],                    # Optional: exclude specific operations
-      plural_resource_name: "users"         # Optional: customize plural name
+      plural_resource_name: "comments"      # Optional: customize plural name
   end
   ```
 
@@ -32,35 +32,43 @@ defmodule ContextKit.CRUD do
 
   ## Generated Functions
 
-  For a schema named `User`, the following functions are generated:
+  For a schema named `Comment`, the following functions are generated:
+
+  ### Query Operations
+    * `query_comments/0` - Returns a base query for all comments
+    * `query_comments/1` - Returns a filtered query based on options (without executing)
 
   ### List Operations
-    * `list_users/0` - Returns all users
-    * `list_users/1` - Returns filtered users based on options
+    * `list_comments/0` - Returns all comments
+    * `list_comments/1` - Returns filtered comments based on options
 
   ### Get Operations
-    * `get_user/1` - Fetches a single user by ID
-    * `get_user/2` - Fetches a user by ID with additional filters
-    * `get_user!/1` - Like `get_user/1` but raises if not found
-    * `get_user!/2` - Like `get_user/2` but raises if not found
+    * `get_comment/1` - Fetches a single comment by ID
+    * `get_comment/2` - Fetches a comment by ID with additional filters
+    * `get_comment!/1` - Like `get_comment/1` but raises if not found
+    * `get_comment!/2` - Like `get_comment/2` but raises if not found
 
   ### Single Record Operations
-    * `one_user/1` - Fetches a single user matching the criteria
-    * `one_user!/1` - Like `one_user/1` but raises if not found
+    * `one_comment/1` - Fetches a single comment matching the criteria
+    * `one_comment!/1` - Like `one_comment/1` but raises if not found
+
+  ### Save Operations
+    * `save_comment/2` - Saves (inserts or updates) a comment with provided attributes
+    * `save_comment!/2` - Like `save_comment/2` but raises on invalid attributes
 
   ### Create Operations
-    * `create_user/1` - Creates a new user with provided attributes
-    * `create_user!/1` - Like `create_user/1` but raises on invalid attributes
+    * `create_comment/1` - Creates a new comment with provided attributes
+    * `create_comment!/1` - Like `create_comment/1` but raises on invalid attributes
 
   ### Update Operations
-    * `update_user/2` - Updates user with provided attributes
-    * `update_user!/2` - Like `update_user/2` but raises on invalid attributes
+    * `update_comment/2` - Updates comment with provided attributes
+    * `update_comment!/2` - Like `update_comment/2` but raises on invalid attributes
 
   ### Change Operations
-    * `change_user/2` - Returns a changeset for the user with optional changes
+    * `change_comment/2` - Returns a changeset for the comment with optional changes
 
   ### Delete Operations
-    * `delete_user/1` - Deletes a user struct or by query criteria
+    * `delete_comment/1` - Deletes a comment struct or by query criteria
 
   ## Query Options
 
@@ -74,26 +82,55 @@ defmodule ContextKit.CRUD do
   ## Examples
 
   ```elixir
-  # List all users
-  MyApp.Accounts.list_users()
+  # Get a query for comments (for use with Repo.aggregate, etc.)
+  query = MyApp.Blog.query_comments(status: :published)
+  MyApp.Repo.aggregate(query, :count)
 
-  # List active users with pagination
-  MyApp.Accounts.list_users(status: :active, paginate: [page: 1])
+  # List all comments
+  MyApp.Blog.list_comments()
 
-  # Get user by ID with preloads
-  MyApp.Accounts.get_user(123, preload: [:posts])
+  # List published comments with pagination
+  MyApp.Blog.list_comments(status: :published, paginate: [page: 1])
 
-  # Create a new user
-  MyApp.Accounts.create_user(%{email: "new@example.com"})
+  # Get comment by ID with preloads
+  MyApp.Blog.get_comment(123, preload: [:user])
 
-  # Update a user
-  MyApp.Accounts.update_user(user, %{email: "updated@example.com"})
+  # Save a comment (insert if new, update if existing)
+  MyApp.Blog.save_comment(comment, %{body: "New or updated content"})
+
+  # Create a new comment
+  MyApp.Blog.create_comment(%{body: "Great post!", user_id: 1})
+
+  # Update a comment
+  MyApp.Blog.update_comment(comment, %{body: "Updated content"})
 
   # Get a changeset for updates
-  MyApp.Accounts.change_user(user, %{email: "changed@example.com"})
+  MyApp.Blog.change_comment(comment, %{body: "Changed content"})
 
-  # Delete user matching criteria
-  MyApp.Accounts.delete_user(email: "user@example.com")
+  # Delete comment matching criteria
+  MyApp.Blog.delete_comment(body: "Specific content to delete")
+  ```
+
+  ## Queries Module
+
+  The required `:queries` module should implement `apply_query_option/2`, which receives a query option and the current query and returns a modified query. This allows for custom filtering, sorting, and other query modifications.
+
+  ```elixir
+  defmodule MyApp.Blog.CommentQueries do
+    import Ecto.Query
+
+    def apply_query_option({:with_user_name, name}, query) do
+      query
+      |> join(:inner, [c], u in assoc(c, :user))
+      |> where([_, u], ilike(u.name, ^"%\#{name}%"))
+    end
+
+    def apply_query_option({:recent_first, true}, query) do
+      order_by(query, [c], desc: c.inserted_at)
+    end
+
+    def apply_query_option(_, query), do: query
+  end
   ```
 
   Each generated function can be overridden in your context module if you need custom behavior.
@@ -109,7 +146,7 @@ defmodule ContextKit.CRUD do
     except = Keyword.get(opts, :except, [])
     plural_resource_name = Keyword.get(opts, :plural_resource_name, nil)
     schema_name = schema |> Macro.expand(__CALLER__) |> Module.split() |> List.last()
-    resource_name = schema_name |> Macro.underscore()
+    resource_name = Macro.underscore(schema_name)
     plural_resource_name = plural_resource_name || "#{resource_name}s"
 
     quote do
@@ -118,7 +155,46 @@ defmodule ContextKit.CRUD do
 
       alias unquote(schema)
 
-      unless :list in unquote(except) do
+      if :query not in unquote(except) do
+        @doc """
+        Returns the query of `%#{unquote(schema_name)}{}`.
+        Options can be passed as a keyword list or map.
+
+        Useful for passing the query into `Repo.aggregate/2`.
+
+        ## Examples
+
+            iex> query_#{unquote(plural_resource_name)}()
+            %Ecto.Query{}
+
+            iex> query_#{unquote(plural_resource_name)}() |> Repo.aggregate(:count)
+            123
+        """
+        @spec unquote(:"query_#{plural_resource_name}")() :: Ecto.Query.t()
+        def unquote(:"query_#{plural_resource_name}")() do
+          unquote(:"query_#{plural_resource_name}")([])
+        end
+
+        @spec unquote(:"query_#{plural_resource_name}")(opts :: Keyword.t()) :: Ecto.Query.t()
+        def unquote(:"query_#{plural_resource_name}")(opts) when is_list(opts) do
+          {query, custom_query_options} =
+            Query.build(Query.new(unquote(schema)), unquote(schema), opts)
+
+          query =
+            Enum.reduce(custom_query_options, query, fn query_option, query_acc ->
+              apply(unquote(queries), :apply_query_option, [query_option, query_acc])
+            end)
+
+          query
+        end
+
+        defoverridable [
+          {unquote(:"query_#{plural_resource_name}"), 0},
+          {unquote(:"query_#{plural_resource_name}"), 1}
+        ]
+      end
+
+      if :list not in unquote(except) do
         @doc """
         Returns the list of `%#{unquote(schema_name)}{}`.
         Options can be passed as a keyword list or map.
@@ -131,16 +207,15 @@ defmodule ContextKit.CRUD do
             iex> list_#{unquote(plural_resource_name)}(field: "value")
             [%#{unquote(schema_name)}{}, ...]
         """
-        @spec unquote(:"list_#{plural_resource_name}")() :: [unquote(schema).t()]
+        @spec unquote(:"list_#{plural_resource_name}")() ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")() do
           unquote(:"list_#{plural_resource_name}")(%{})
         end
 
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) :: [
-                unquote(schema).t()
-              ]
-        def unquote(:"list_#{plural_resource_name}")(opts)
-            when is_list(opts) or is_non_struct_map(opts) do
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
+        def unquote(:"list_#{plural_resource_name}")(opts) when is_list(opts) or is_non_struct_map(opts) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -157,9 +232,8 @@ defmodule ContextKit.CRUD do
           end
         end
 
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Ecto.Query.t()) :: [
-                unquote(schema).t()
-              ]
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: Ecto.Query.t()) ::
+                [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")(opts) when is_struct(opts, Ecto.Query) do
           unquote(repo).all(opts)
         end
@@ -170,7 +244,7 @@ defmodule ContextKit.CRUD do
         ]
       end
 
-      unless :get in unquote(except) do
+      if :get not in unquote(except) do
         @doc """
         Returns a `%#{unquote(schema_name)}{}` by id.
         Can be optionally filtered by `opts`.
@@ -185,14 +259,14 @@ defmodule ContextKit.CRUD do
             iex> get_#{unquote(resource_name)}(1, field: "test")
             nil
         """
-        @spec unquote(:"get_#{resource_name}")(id :: integer() | String.t()) ::
+        @spec unquote(:"get_#{resource_name}")(id :: term()) ::
                 unquote(schema).t() | nil
         def unquote(:"get_#{resource_name}")(id) do
           unquote(:"get_#{resource_name}")(id, [])
         end
 
         @spec unquote(:"get_#{resource_name}")(
-                id :: integer() | String.t(),
+                id :: term(),
                 Keyword.t() | map() | Ecto.Query.t()
               ) ::
                 unquote(schema).t() | nil
@@ -206,8 +280,7 @@ defmodule ContextKit.CRUD do
               apply(unquote(queries), :apply_query_option, [query_option, query_acc])
             end)
 
-          query
-          |> unquote(repo).get(id)
+          unquote(repo).get(query, id)
         end
 
         defoverridable [
@@ -230,17 +303,15 @@ defmodule ContextKit.CRUD do
             Ecto.NoResultsError
 
         """
-        @spec unquote(:"get_#{resource_name}!")(id :: integer() | String.t()) ::
-                unquote(schema).t() | nil
+        @spec unquote(:"get_#{resource_name}!")(id :: term()) :: unquote(schema).t()
         def unquote(:"get_#{resource_name}!")(id) do
           unquote(:"get_#{resource_name}!")(id, %{})
         end
 
         @spec unquote(:"get_#{resource_name}!")(
-                id :: integer() | String.t(),
+                id :: term(),
                 opts :: Keyword.t() | map() | Ecto.Query.t()
-              ) ::
-                unquote(schema).t() | nil
+              ) :: unquote(schema).t()
         def unquote(:"get_#{resource_name}!")(id, opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
@@ -251,8 +322,7 @@ defmodule ContextKit.CRUD do
               apply(unquote(queries), :apply_query_option, [query_option, query_acc])
             end)
 
-          query
-          |> unquote(repo).get!(id)
+          unquote(repo).get!(query, id)
         end
 
         defoverridable [
@@ -261,7 +331,7 @@ defmodule ContextKit.CRUD do
         ]
       end
 
-      unless :one in unquote(except) do
+      if :one not in unquote(except) do
         @doc """
         Fetches a single `%#{unquote(schema_name)}{}` from the `opts` query via `Repo.one/2`.
 
@@ -277,8 +347,7 @@ defmodule ContextKit.CRUD do
         """
         @spec unquote(:"one_#{resource_name}")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
                 unquote(schema).t() | nil
-        def unquote(:"one_#{resource_name}")(opts)
-            when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
+        def unquote(:"one_#{resource_name}")(opts) when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -287,8 +356,7 @@ defmodule ContextKit.CRUD do
               apply(unquote(queries), :apply_query_option, [query_option, query_acc])
             end)
 
-          query
-          |> unquote(repo).one()
+          unquote(repo).one(query)
         end
 
         @doc """
@@ -304,10 +372,8 @@ defmodule ContextKit.CRUD do
             iex> one_#{unquote(resource_name)}!(opts)
             nil
         """
-        @spec unquote(:"one_#{resource_name}!")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
-                unquote(schema).t() | nil
-        def unquote(:"one_#{resource_name}!")(opts)
-            when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
+        @spec unquote(:"one_#{resource_name}!")(opts :: Keyword.t() | map() | Ecto.Query.t()) :: unquote(schema).t()
+        def unquote(:"one_#{resource_name}!")(opts) when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
 
@@ -316,14 +382,13 @@ defmodule ContextKit.CRUD do
               apply(unquote(queries), :apply_query_option, [query_option, query_acc])
             end)
 
-          query
-          |> unquote(repo).one!()
+          unquote(repo).one!(query)
         end
 
         defoverridable [{unquote(:"one_#{resource_name}"), 1}]
       end
 
-      unless :delete in unquote(except) do
+      if :delete not in unquote(except) do
         @doc """
         Deletes a single `%#{unquote(schema_name)}{}`.
 
@@ -361,9 +426,7 @@ defmodule ContextKit.CRUD do
               apply(unquote(queries), :apply_query_option, [query_option, query_acc])
             end)
 
-          result =
-            query
-            |> unquote(repo).one()
+          result = unquote(repo).one(query)
 
           case result do
             nil -> {:error, :not_found}
@@ -377,7 +440,7 @@ defmodule ContextKit.CRUD do
         defoverridable [{unquote(:"delete_#{resource_name}"), 1}]
       end
 
-      unless :change in unquote(except) do
+      if :change not in unquote(except) do
         @doc """
         Returns a `%Ecto.Changeset{}` for `%#{unquote(schema_name)}{}` by calling `#{unquote(schema_name)}.changeset/2`.
 
@@ -391,14 +454,49 @@ defmodule ContextKit.CRUD do
                 params :: map()
               ) :: Ecto.Changeset.t()
         def(unquote(:"change_#{resource_name}")(%unquote(schema){} = resource, params \\ %{})) do
-          resource
-          |> unquote(schema).changeset(params)
+          unquote(schema).changeset(resource, params)
         end
 
         defoverridable [{unquote(:"change_#{resource_name}"), 2}]
       end
 
-      unless :create in unquote(except) do
+      if :save not in unquote(except) do
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}(#{unquote(resource_name)}, params)
+            {:ok, %#{unquote(schema_name)}{}}
+
+            iex> save_#{unquote(resource_name)}(invalid_params)
+            {:ok, %Ecto.Changeset{}}
+        """
+        @spec unquote(:"save_#{resource_name}")(resource :: unquote(schema).t(), params :: map()) ::
+                {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
+        def unquote(:"save_#{resource_name}")(%unquote(schema){} = resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update()
+        end
+
+        @doc """
+        Saves a `%#{unquote(schema_name)}{}` with provided attributes. Resource can be either new or persisted.
+
+        ## Examples
+
+            iex> save_#{unquote(resource_name)}!(#{unquote(resource_name)}, params)
+            %#{unquote(schema_name)}{}
+        """
+        @spec unquote(:"save_#{resource_name}!")(resource :: unquote(schema).t(), params :: map()) :: unquote(schema).t()
+        def unquote(:"save_#{resource_name}!")(%unquote(schema){} = resource, params \\ %{}) do
+          resource
+          |> unquote(schema).changeset(params)
+          |> unquote(repo).insert_or_update!()
+        end
+      end
+
+      if :create not in unquote(except) do
         @doc """
         Creates a new `%#{unquote(schema_name)}{}` with provided attributes.
 
@@ -444,7 +542,7 @@ defmodule ContextKit.CRUD do
         ]
       end
 
-      unless :update in unquote(except) do
+      if :update not in unquote(except) do
         @doc """
         Updates the `%#{unquote(schema_name)}{}` with provided attributes.
 
@@ -483,8 +581,7 @@ defmodule ContextKit.CRUD do
         @spec unquote(:"update_#{resource_name}!")(
                 resource :: unquote(schema).t(),
                 params :: map()
-              ) ::
-                {:ok, unquote(schema).t()} | Ecto.Changeset.t()
+              ) :: unquote(schema).t()
         def unquote(:"update_#{resource_name}!")(resource, params \\ %{}) do
           resource
           |> unquote(schema).changeset(params)
