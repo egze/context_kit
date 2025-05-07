@@ -4,165 +4,158 @@
 [![Hex Version](https://img.shields.io/hexpm/v/context_kit.svg)](https://hex.pm/packages/context_kit)
 [![Hex docs](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat)](https://hexdocs.pm/context_kit)
 
-ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with standardized CRUD operations. It helps reduce boilerplate code while providing powerful querying capabilities and built-in pagination support.
-
-## Features
-
-- 🚀 Automatic CRUD operation generation
-- 🔍 Dynamic query building with extensive filtering options
-- 📄 Built-in pagination support
-- 🔧 Flexible and extensible design
-- 🎯 Custom query options for complex filtering
+ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with standardized CRUD operations. It minimizes boilerplate while offering powerful querying, context scoping, and built-in pagination support.
 
 ## Installation
 
-The package can be installed by adding `context_kit` to your list of dependencies in `mix.exs`:
+Add `context_kit` to your list of dependencies in `mix.exs`:
 
-```elixir
-def deps do
-  [
-    {:context_kit, "~> 0.2.0"}
-  ]
-end
-```
+    def deps do
+      [
+        {:context_kit, "~> 0.3.0"}
+      ]
+    end
 
 ## Quick Start
 
-### 1. Define your schema:
+### 1. Define Your Schema
+
+Create your Ecto schemas defining the necessary fields.
 
 ```elixir
-defmodule MyApp.Accounts.User do
+defmodule MyApp.Schemas.User do
   use Ecto.Schema
 
   schema "users" do
     field :email, :string
-    field :name, :string
-    field :status, :string
     timestamps()
   end
 end
-```
 
-### 2. Create a queries module (optional, functions can be defined directly in context module, and configured as `queries: __MODULE__`):
+defmodule MyApp.Schemas.Comment do
+  use Ecto.Schema
 
-```elixir
-defmodule MyApp.Accounts.UserQueries do
-  def apply_query_option({:with_active_posts, true}, query) do
-    query
-    |> join(:inner, [u], p in assoc(u, :posts))
-    |> where([_, p], p.status == "active")
+  schema "comments" do
+    field :text, :string
+
+    belongs_to :user, MyApp.Schemas.User
+    timestamps()
+  end
+
+  def changeset(comment, attrs, user_scope \\ nil) do
+    changeset =
+      comment
+      |> cast(attrs, [:text])
+      |> validate_required([:text])
+      |> assoc_constraint(:user)
+
+    if user_scope do
+      put_change(changeset, :user_id, user_scope.user.id)
+    else
+      changeset
+    end
   end
 end
 ```
 
-### 3. Use ContextKit in your context:
+### 2. Integrate in Your Context
+
+Use `ContextKit.CRUD.Scoped` or `ContextKit.CRUD` in your context module to hook up the schema, repository, and custom scoped queries.
+
+- `ContextKit.CRUD.Scoped` will generate functions with and without scopes. (Requires `:pubsub` and `:scope` options).
+- `ContextKit.CRUD` will generate functions only without scopes.
 
 ```elixir
-defmodule MyApp.Accounts do
-  use ContextKit.CRUD,
+defmodule MyApp.Contexts.Comments do
+  use ContextKit.CRUD.Scoped,
     repo: MyApp.Repo,
-    schema: MyApp.Accounts.User,
-    queries: MyApp.Accounts.UserQueries
+    schema: MyApp.Schemas.Comment,
+    queries: __MODULE__,
+    pubsub: MyApp.PubSub, # For realtime notifications via PubSub.
+    scope: Application.compile_env(:my_app, :scopes)[:user] # To gain support for Phoenix 1.8 scopes.
 end
 ```
 
-By setting `queries: __MODULE__`, you can define your custom query functions (`apply_query_option/2`) directly in your context module,
-eliminating the need for a separate queries module. This is particularly convenient for simpler contexts
-where you don't need to share query logic across multiple modules.
+This will automatically generate the list, get, create, update, delete, and more functions in your context module. Refer to the modules below for teh exact list.
+
+## Additional Modules Overview
+
+- **ContextKit.CRUD**
+  Provides standard CRUD operations and dynamic query building.
+  Source: [context_kit/lib/context_kit/crud.ex](context_kit/lib/context_kit/crud.ex)
+
+- **ContextKit.CRUD.Scoped**
+  Provides standard CRUD operations and dynamic query building with support of Phoenix scopes.
+  Source: [context_kit/lib/context_kit/crud.ex](context_kit/lib/context_kit/crud/scoped.ex)
+
+- **ContextKit.Paginator**
+  Manages pagination including limit/offset calculations and metadata generation.
+  Source: [context_kit/lib/context_kit/paginator.ex](context_kit/lib/context_kit/paginator.ex)
+
+- **ContextKit.Query**
+  Enables dynamic query building with extensive filtering options.
+  Source: [context_kit/lib/context_kit/query.ex](context_kit/lib/context_kit/query.ex)
 
 ## Usage Examples
 
 ### Basic CRUD Operations
 
-```elixir
-# List all users
-Accounts.list_users()
+    # List all comments:
+    MyApp.Contexts.Comments.list_comments()
 
-# List with filters and pagination
-{users, pagination} = Accounts.list_users(
-  status: "active",
-  paginate: [page: 1, per_page: 20]
-)
+    # List all comments using current scope:
+    MyApp.Contexts.Comments.list_comments(socket.assigns.current_scope)
 
-# Get single user
-user = Accounts.get_user(123)
-user = Accounts.get_user!(123)  # Raises if not found
+    # List comments with filtering and pagination:
+    {comments, paginator} = MyApp.Contexts.Comments.list_comments(
+      filters: [
+        %{field: :text, op: :like, value: "%interesting%"}
+      ],
+      paginate: [page: 1, per_page: 10]
+    )
 
-# Get one user by criteria
-user = Accounts.one_user(email: "user@example.com")
+    # Get a single comment (raises if not found):
+    comment = MyApp.Contexts.Comments.get_comment!(456)
 
-# Create a new user
-MyApp.Accounts.create_user(%{email: "new@example.com"})
+    # Create a new comment:
+    MyApp.Contexts.Comments.create_comment(%{text: "Great post!"})
 
-# Update a user
-MyApp.Accounts.update_user(user, %{email: "updated@example.com"})
+    # Update a comment:
+    MyApp.Contexts.Comments.update_comment(comment, %{text: "Updated comment content"})
 
-# Get a changeset for updates
-MyApp.Accounts.change_user(user, %{email: "changed@example.com"})
-
-# Delete user
-Accounts.delete_user(user)
-Accounts.delete_user(email: "user@example.com")
-```
+    # Delete a comment:
+    MyApp.Contexts.Comments.delete_comment(comment)
 
 ### Advanced Filtering
 
-All fields from the schema can be filtered on automatically.
+Utilize flexible filters with various operators:
 
-```elixir
-Accounts.list_users(
-  filters: [
-    %{field: :email, op: :ilike, value: "@gmail.com"},
-    %{field: :status, op: :in, value: ["active", "pending"]},
-    %{field: :name, op: :like_or, value: ["john", "jane"]}
-  ]
-)
-```
+    MyApp.Contexts.Users.list_users(
+      filters: [
+        %{field: :email, op: :ilike, value: "@gmail.com"},
+        %{field: :status, op: :in, value: ["active", "pending"]},
+        %{field: :name, op: :like_or, value: ["john", "jane"]}
+      ]
+    )
 
 ### Custom Query Options
 
-Any option not recognized as a field filter or standard query option is treated as a custom query option and passed to
-the queries module's `apply_query_option/2` function.
+Any option not recognized as a field filter or standard query option is passed to your custom queries module’s `apply_query_option/2`.
 
-```elixir
-# Define custom query in your queries module
-def apply_query_option({:with_recent_activity, true}, query) do
-  query
-  |> where([u], u.last_active_at > ago(1, "day"))
-end
-
-# Use in your context
-Accounts.list_users(with_recent_activity: true)
-```
-
-## Configuration
-
-When using `ContextKit.CRUD`, you can configure:
-
-- `repo`: Your Ecto repository module
-- `schema`: The Ecto schema module
-- `queries`: Module containing custom query functions
-- `except`: List of operations to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`)
-- `plural_resource_name`: Custom plural name for list functions
-
-## Best Practices
-
-1. Create separate query modules for complex filtering logic
-2. Override generated functions when you need custom behavior
-3. Use pagination for large datasets
-4. Leverage custom query options for reusable query logic
+    # Custom query option example for comments context
+    MyApp.Contexts.Comments.list_comments(with_recent_activity: true)
 
 ## Documentation
 
-Full documentation can be found at [https://hexdocs.pm/context_kit](https://hexdocs.pm/context_kit).
+Full documentation is available at [https://hexdocs.pm/context_kit](https://hexdocs.pm/context_kit).
 
 ## Contributing
 
-1. Fork it
+1. Fork the repository
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+5. Create a Pull Request
 
 ## License
 
