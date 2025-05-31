@@ -12,7 +12,7 @@ Add `context_kit` to your list of dependencies in `mix.exs`:
 
     def deps do
       [
-        {:context_kit, "~> 0.3.0"}
+        {:context_kit, "~> 0.4.0"}
       ]
     end
 
