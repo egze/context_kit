@@ -36,6 +36,18 @@ defmodule ContextKit.CRUDTest do
     end
   end
 
+  describe "new_{:resource}/0-2" do
+    test "simple new" do
+      assert %Book{} = Books.new_book()
+      assert %Book{title: "my book"} = Books.new_book(%{title: "my book"})
+    end
+
+    test "preloads assocs" do
+      assert {:ok, author} = Repo.insert(%Author{name: "Bob"})
+      assert %Book{author: %Author{name: "Bob"}} = Books.new_book(%{author_id: author.id}, preload: [:author])
+    end
+  end
+
   describe "list_{:resource}/0-1" do
     test "simple list" do
       assert {:ok, book} = Repo.insert(%Book{title: "My Book"})

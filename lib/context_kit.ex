@@ -141,6 +141,9 @@ defmodule ContextKit do
   Blog.query_comments()
   Blog.query_comments(status: "published")
 
+  # New record
+  Blog.new_comment(%{status: "published"})
+
   # List records with filtering and pagination
   Blog.list_comments(status: "published", paginate: [page: 1, per_page: 20])
 
@@ -314,7 +317,7 @@ defmodule ContextKit do
   - `repo`: Your Ecto repository module
   - `schema`: The Ecto schema module
   - `queries`: Module containing custom query functions
-  - `except`: List of operations to exclude (`:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`, `:subscribe`, `:broadcast`)
+  - `except`: List of operations to exclude (`:new`, `:list`, `:get`, `:one`, `:delete`, `:create`, `:update`, `:change`, `:subscribe`, `:broadcast`)
   - `plural_resource_name`: Custom plural name for list functions
 
   Additional options for `ContextKit.CRUD.Scoped`:
