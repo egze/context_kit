@@ -38,6 +38,11 @@ defmodule ContextKit.CRUD do
     * `query_comments/0` - Returns a base query for all comments
     * `query_comments/1` - Returns a filtered query based on options (without executing)
 
+  ### New Operations
+    * `new_comment/0` - Returns a new comment
+    * `new_comment/1` - Returns a new comment with params
+    * `new_comment/2` - Returns a new comment with params and opts
+
   ### List Operations
     * `list_comments/0` - Returns all comments
     * `list_comments/1` - Returns filtered comments based on options
@@ -85,6 +90,9 @@ defmodule ContextKit.CRUD do
   # Get a query for comments (for use with Repo.aggregate, etc.)
   query = MyApp.Blog.query_comments(status: :published)
   MyApp.Repo.aggregate(query, :count)
+
+  # New comment
+  MyApp.Blog.new_comment()
 
   # List all comments
   MyApp.Blog.list_comments()
@@ -175,7 +183,7 @@ defmodule ContextKit.CRUD do
           unquote(:"query_#{plural_resource_name}")([])
         end
 
-        @spec unquote(:"query_#{plural_resource_name}")(opts :: Keyword.t()) :: Ecto.Query.t()
+        @spec unquote(:"query_#{plural_resource_name}")(opts :: keyword()) :: Ecto.Query.t()
         def unquote(:"query_#{plural_resource_name}")(opts) when is_list(opts) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
@@ -191,6 +199,52 @@ defmodule ContextKit.CRUD do
         defoverridable [
           {unquote(:"query_#{plural_resource_name}"), 0},
           {unquote(:"query_#{plural_resource_name}"), 1}
+        ]
+      end
+
+      if :new not in unquote(except) do
+        @doc """
+        Returns a `%#{unquote(schema_name)}{}`.
+
+        Fields can be passed as a map. Optionally, you can pass preloads via the opts
+        keyword list to preload associations on the returned struct.
+
+        ## Examples
+
+            iex> new_#{unquote(resource_name)}()
+            %#{unquote(schema_name)}{}
+
+            iex> new_#{unquote(resource_name)}(%{foo: "bar"})
+            %#{unquote(schema_name)}{foo: "bar"}
+
+            iex> new_#{unquote(resource_name)}(%{assoc_id: 123}, preload: [:assoc])
+            %#{unquote(schema_name)}{assoc_id: 123, assoc: %Assoc{}}
+        """
+        @spec unquote(:"new_#{resource_name}")() :: unquote(schema).t()
+        def unquote(:"new_#{resource_name}")() do
+          unquote(:"new_#{resource_name}")(%{}, [])
+        end
+
+        @spec unquote(:"new_#{resource_name}")(params :: map()) :: unquote(schema).t()
+        def unquote(:"new_#{resource_name}")(params) when is_map(params) do
+          unquote(:"new_#{resource_name}")(params, [])
+        end
+
+        @spec unquote(:"new_#{resource_name}")(params :: map(), opts :: keyword()) :: unquote(schema).t()
+        def unquote(:"new_#{resource_name}")(params, opts) when is_map(params) and is_list(opts) do
+          record =
+            unquote(schema).__struct__()
+            |> Ecto.Changeset.change()
+            |> Ecto.Changeset.cast(params, unquote(schema).__schema__(:fields))
+            |> Ecto.Changeset.apply_changes()
+
+          if opts[:preload], do: unquote(repo).preload(record, opts[:preload]), else: record
+        end
+
+        defoverridable [
+          {unquote(:"new_#{resource_name}"), 0},
+          {unquote(:"new_#{resource_name}"), 1},
+          {unquote(:"new_#{resource_name}"), 2}
         ]
       end
 
@@ -213,7 +267,7 @@ defmodule ContextKit.CRUD do
           unquote(:"list_#{plural_resource_name}")(%{})
         end
 
-        @spec unquote(:"list_#{plural_resource_name}")(opts :: Keyword.t() | map()) ::
+        @spec unquote(:"list_#{plural_resource_name}")(opts :: keyword() | map()) ::
                 [unquote(schema).t()] | {[unquote(schema).t()], ContextKit.Paginator.t()}
         def unquote(:"list_#{plural_resource_name}")(opts) when is_list(opts) or is_non_struct_map(opts) do
           {query, custom_query_options} =
@@ -267,7 +321,7 @@ defmodule ContextKit.CRUD do
 
         @spec unquote(:"get_#{resource_name}")(
                 id :: term(),
-                Keyword.t() | map() | Ecto.Query.t()
+                keyword() | map() | Ecto.Query.t()
               ) ::
                 unquote(schema).t() | nil
         def unquote(:"get_#{resource_name}")(id, opts)
@@ -310,7 +364,7 @@ defmodule ContextKit.CRUD do
 
         @spec unquote(:"get_#{resource_name}!")(
                 id :: term(),
-                opts :: Keyword.t() | map() | Ecto.Query.t()
+                opts :: keyword() | map() | Ecto.Query.t()
               ) :: unquote(schema).t()
         def unquote(:"get_#{resource_name}!")(id, opts)
             when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
@@ -345,7 +399,7 @@ defmodule ContextKit.CRUD do
             iex> one_#{unquote(resource_name)}(opts)
             nil
         """
-        @spec unquote(:"one_#{resource_name}")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
+        @spec unquote(:"one_#{resource_name}")(opts :: keyword() | map() | Ecto.Query.t()) ::
                 unquote(schema).t() | nil
         def unquote(:"one_#{resource_name}")(opts) when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
@@ -372,7 +426,7 @@ defmodule ContextKit.CRUD do
             iex> one_#{unquote(resource_name)}!(opts)
             nil
         """
-        @spec unquote(:"one_#{resource_name}!")(opts :: Keyword.t() | map() | Ecto.Query.t()) :: unquote(schema).t()
+        @spec unquote(:"one_#{resource_name}!")(opts :: keyword() | map() | Ecto.Query.t()) :: unquote(schema).t()
         def unquote(:"one_#{resource_name}!")(opts) when is_list(opts) or is_map(opts) or is_struct(opts, Ecto.Query) do
           {query, custom_query_options} =
             Query.build(Query.new(unquote(schema)), unquote(schema), opts)
@@ -415,7 +469,7 @@ defmodule ContextKit.CRUD do
             iex> delete_#{unquote(resource_name)}(id: 1)
             {:ok, %#{unquote(schema_name)}{}}
         """
-        @spec unquote(:"delete_#{resource_name}")(opts :: Keyword.t() | map() | Ecto.Query.t()) ::
+        @spec unquote(:"delete_#{resource_name}")(opts :: keyword() | map() | Ecto.Query.t()) ::
                 {:ok, unquote(schema).t()} | {:error, Ecto.Changeset.t()}
         def(unquote(:"delete_#{resource_name}")(opts)) do
           {query, custom_query_options} =
