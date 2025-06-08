@@ -63,6 +63,7 @@ defmodule ContextKit.Query do
     - `:limit` - Limit number of results
     - `:preload` - Preload associations
     - `:paginate` - Enable pagination with optional configuration
+    - `:select` - Select only specific fields from the database
   """
 
   import Ecto.Query
