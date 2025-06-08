@@ -1,7 +1,7 @@
 defmodule ContextKit.MixProject do
   use Mix.Project
 
-  @version "0.4.0"
+  @version "0.5.0"
   @source_url "https://github.com/egze/context_kit"
 
   def project do

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.5.0
+
+* Added support for `:select` query option, to select specific fields from the database.
+
 ## v0.4.0
 
 * Added support for `new_#{record}` function

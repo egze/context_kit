@@ -63,6 +63,7 @@ defmodule ContextKit.Query do
     - `:limit` - Limit number of results
     - `:preload` - Preload associations
     - `:paginate` - Enable pagination with optional configuration
+    - `:select` - Select only specific fields from the database
   """
 
   import Ecto.Query
@@ -75,7 +76,8 @@ defmodule ContextKit.Query do
     :limit,
     :order_by,
     :paginate,
-    :preload
+    :preload,
+    :select
   ]
 
   def new(schema) do
@@ -319,6 +321,10 @@ defmodule ContextKit.Query do
 
   defp apply_query_option({:limit, limit}, query, _binding_name) do
     limit(query, ^limit)
+  end
+
+  defp apply_query_option({:select, fields}, query, _binding_name) do
+    select(query, ^fields)
   end
 
   defp apply_query_option({:preload, preload}, query, _binding_name) do
