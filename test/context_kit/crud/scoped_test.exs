@@ -107,7 +107,17 @@ defmodule ContextKit.CRUD.ScopedTest do
 
       assert [db_book] = ScopedBooks.list_scoped_books()
 
+      assert db_book.id == scoped_book.id
+      assert db_book.title == "My Book"
+    end
+
+    test "selects specific fields" do
+      assert {:ok, scoped_book} = Repo.insert(%ScopedBook{title: "My Book"})
+
+      assert [db_book] = ScopedBooks.list_scoped_books(select: [:id])
+
       assert scoped_book.id == db_book.id
+      assert db_book.title == nil
     end
 
     test "filters by scope" do

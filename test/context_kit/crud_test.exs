@@ -54,7 +54,17 @@ defmodule ContextKit.CRUDTest do
 
       assert [db_book] = Books.list_books()
 
-      assert book.id == db_book.id
+      assert db_book.id == book.id
+      assert db_book.title == "My Book"
+    end
+
+    test "selects specific fields" do
+      assert {:ok, scoped_book} = Repo.insert(%Book{title: "My Book"})
+
+      assert [db_book] = Books.list_books(select: [:id])
+
+      assert scoped_book.id == db_book.id
+      assert db_book.title == nil
     end
 
     test "filters by fields in keyword list" do
