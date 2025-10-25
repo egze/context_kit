@@ -460,8 +460,7 @@ defmodule ContextKit.CRUD.Scoped do
         def unquote(:"new_#{resource_name}")(params, opts) when is_map(params) and is_list(opts) do
           record =
             unquote(schema).__struct__()
-            |> Ecto.Changeset.change()
-            |> Ecto.Changeset.cast(params, unquote(schema).__schema__(:fields))
+            |> unquote(schema).changeset(params)
             |> Ecto.Changeset.apply_changes()
 
           if opts[:preload], do: unquote(repo).preload(record, opts[:preload]), else: record

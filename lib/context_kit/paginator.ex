@@ -66,14 +66,14 @@ defmodule ContextKit.Paginator do
       cond do
         page > @max_page -> @max_page
         page < @min_page -> @min_page
-        :else -> page
+        true -> page
       end
     end)
     |> Map.update!(:per_page, fn per_page ->
       cond do
         per_page > @max_per_page -> @max_per_page
         per_page < @min_per_page -> @min_per_page
-        :else -> per_page
+        true -> per_page
       end
     end)
   end
@@ -92,7 +92,7 @@ defmodule ContextKit.Paginator do
       rem(total_count, per_page) > 0 ->
         div(total_count, per_page) + 1
 
-      :else ->
+      true ->
         div(total_count, per_page)
     end
   end

@@ -20,8 +20,8 @@ defmodule ContextKit.CRUD.ScopedTest do
 
   describe "subscribe_{:resource}/0-1" do
     test "simple subscribe" do
-      scope = %ContextKit.Scope{
-        user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+      scope = %Scope{
+        user: %User{id: 1234, email: "foo@bar.org"}
       }
 
       assert :ok = ScopedBooks.subscribe_scoped_books(scope)
@@ -30,8 +30,8 @@ defmodule ContextKit.CRUD.ScopedTest do
 
   describe "broadcast_{:resource}/1-2" do
     test "simple broadcast" do
-      scope = %ContextKit.Scope{
-        user: %ContextKit.User{id: 1234, email: "foo@bar.org"}
+      scope = %Scope{
+        user: %User{id: 1234, email: "foo@bar.org"}
       }
 
       :ok = ScopedBooks.subscribe_scoped_books(scope)

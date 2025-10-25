@@ -105,7 +105,7 @@ defmodule ContextKit.Book do
 
   def changeset(schema, params) do
     schema
-    |> cast(params, [:title])
+    |> cast(params, [:title, :author_id])
     |> validate_required([:title])
   end
 end
@@ -127,15 +127,64 @@ defmodule ContextKit.ScopedBook do
 
   def changeset(schema, params) do
     schema
-    |> cast(params, [:title])
+    |> cast(params, [:title, :scoped_author_id])
     |> validate_required([:title])
   end
 
   def changeset(schema, params, user_scope) do
     schema
-    |> cast(params, [:title])
+    |> cast(params, [:title, :scoped_author_id])
     |> put_change(:user_id, user_scope.user.id)
   end
+end
+
+defmodule ContextKit.Address do
+  @moduledoc false
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  @primary_key false
+  embedded_schema do
+    field :street, :string
+    field :city, :string
+  end
+
+  def changeset(schema, params) do
+    schema
+    |> cast(params, [:street, :city])
+    |> validate_required([:city])
+  end
+end
+
+defmodule ContextKit.Profile do
+  @moduledoc false
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  schema "profiles" do
+    field :name, :string
+    embeds_one :address, ContextKit.Address, on_replace: :update
+
+    timestamps()
+  end
+
+  def changeset(schema, params) do
+    schema
+    |> cast(params, [:name])
+    |> cast_embed(:address, with: &ContextKit.Address.changeset/2)
+  end
+end
+
+defmodule ContextKit.Profiles do
+  @moduledoc false
+  use ContextKit.CRUD,
+    schema: ContextKit.Profile,
+    repo: ContextKit.Test.Repo,
+    queries: __MODULE__
+
+  def apply_query_option(_, query), do: query
 end
 
 defmodule ContextKit.Books do

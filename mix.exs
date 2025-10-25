@@ -16,7 +16,8 @@ defmodule ContextKit.MixProject do
       docs: docs(),
       description:
         "ContextKit is a modular toolkit for building robust Phoenix/Ecto contexts with standardized CRUD operations",
-      source_url: @source_url
+      source_url: @source_url,
+      test_ignore_filters: [~r/test\/support\/migrations\/.*\.exs/]
     ]
   end
 
